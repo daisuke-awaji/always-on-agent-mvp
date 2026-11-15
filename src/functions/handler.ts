@@ -53,12 +53,13 @@ async function postEvent(deps: HandlerDeps, userId: string, rawBody: string | nu
   if (!rawBody) return json(400, { error: 'body is required' });
   if (Buffer.byteLength(rawBody, 'utf8') > MAX_BODY_BYTES) return json(413, { error: 'body too large' });
 
-  let body: Record<string, unknown>;
+  let body: unknown;
   try {
     body = JSON.parse(rawBody);
   } catch {
     return json(400, { error: 'body must be JSON' });
   }
+  if (!isPlainObject(body)) return json(400, { error: 'body must be a JSON object' });
   const parsed = parseEventBody(userId, body);
   if ('error' in parsed) return json(400, { error: parsed.error });
 
@@ -99,6 +100,11 @@ function parseLimit(event: APIGatewayProxyEvent): number {
 
 function json(statusCode: number, body: unknown): APIGatewayProxyResult {
   return { statusCode, headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) };
+}
+
+/** JSON.parse の結果が `{ ... }`（null・配列・プリミティブ以外）かどうか */
+function isPlainObject(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
 }
 
 // ---- Lambda エントリーポイント ----
