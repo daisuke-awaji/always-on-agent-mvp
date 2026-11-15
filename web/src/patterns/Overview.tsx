@@ -1,3 +1,5 @@
+import { ArrowRight } from 'lucide-react';
+import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card-clean';
 import { PATTERNS } from '../ui/patterns';
 import { buildRuns, countByStatus } from '../ui/derive';
 import type { AgentData } from '../ui/useAgentData';
@@ -42,20 +44,23 @@ export function Overview({ data }: { data: AgentData }) {
           の送信ができます。
         </p>
       </section>
-      <div className="pattern-cards">
+      <ul className="pattern-cards">
         {PATTERNS.map((p) => {
           const d = DETAILS[p.route];
           return (
-            <a key={p.route} href={`#/${p.route}`} className="pattern-card">
-              <div className="pattern-card-head">
-                <span className="pattern-letter">{p.letter}</span>
-                <div>
-                  <h2>{p.name}</h2>
-                  <p className="muted">{p.tagline}</p>
-                </div>
-              </div>
+            <Card key={p.route} as="li" interactive>
+              <CardHeader
+                titleAs="h2"
+                icon={
+                  <span className="pattern-letter" aria-hidden>
+                    {p.letter}
+                  </span>
+                }
+                title={<a href={`#/${p.route}`}>{p.name}</a>}
+                description={p.tagline}
+              />
               {d && (
-                <>
+                <CardContent className="pattern-card-body">
                   <h3>向いていること</h3>
                   <ul>
                     {d.good.map((g) => (
@@ -68,13 +73,17 @@ export function Overview({ data }: { data: AgentData }) {
                       <li key={g}>{g}</li>
                     ))}
                   </ul>
-                </>
+                </CardContent>
               )}
-              <span className="pattern-open">開く →</span>
-            </a>
+              <CardFooter>
+                <span className="pattern-open">
+                  開く <ArrowRight size={14} strokeWidth={1.9} aria-hidden />
+                </span>
+              </CardFooter>
+            </Card>
           );
         })}
-      </div>
+      </ul>
       <section className="overview-notes">
         <h2>試してほしいこと</h2>
         <ol>

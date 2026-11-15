@@ -1,13 +1,23 @@
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, ChevronRight, RefreshCw, Send } from 'lucide-react';
 import { useMemo, useState, type SyntheticEvent } from 'react';
+import { Badge } from '@/components/ui/badge-clean';
+import { Button } from '@/components/ui/button-clean';
+import { CodeBlock } from '@/components/ui/code-block-clean';
+import { IconButton } from '@/components/ui/icon-button-clean';
+import { Select } from '@/components/ui/select-clean';
+import { TextArea } from '@/components/ui/text-area-clean';
+import { TextField } from '@/components/ui/text-field-clean';
+import { ToggleGroup } from '@/components/ui/toggle-group-clean';
+import { ToolCallCard, ToolCallGroup } from '@/components/ui/tool-call-card-clean';
 import { ApiError, postEvent } from '../api/client';
-import type { EventType, InboxEvent, PostEventBody } from '../api/schema';
-import { OutcomeBadge, PHONE, SourceAvatar, StatusBadge, useMediaQuery } from '../ui/components';
+import type { EventType, InboxEvent, PostEventBody, StoredMessage } from '../api/schema';
+import { ListSkeleton, OutcomeBadge, PHONE, SourceAvatar, StatusBadge, useMediaQuery } from '../ui/components';
 import {
   buildRuns,
   clock,
   countByStatus,
   dayLabel,
+  firstLine,
   OUTCOME_LABEL,
   relativeTime,
   summarize,
@@ -20,11 +30,14 @@ import { useNow, type AgentData } from '../ui/useAgentData';
  * パターン C: 運用。イベントと run の流れをそのまま見せる、開発・運用向けの画面。
  * 右側のフォームから任意のイベントを送り、受付の応答（202 / duplicate / 400）をその場で確かめられる。
  */
-type OutcomeFilter = 'all' | RunOutcome;
+const OUTCOMES: RunOutcome[] = ['queued', 'running', 'retrying', 'sent', 'silent', 'failed'];
+const ALL = 'all';
 
 export function ConsolePattern({ userId, data }: { userId: string; data: AgentData }) {
   const now = useNow(5_000);
-  const [filter, setFilter] = useState<OutcomeFilter>('all');
+  const phone = useMediaQuery(PHONE);
+  // 何も選んでいないときは全部。もう一度押すと外れる
+  const [filter, setFilter] = useState<RunOutcome | null>(null);
   const [openRun, setOpenRun] = useState<string>();
   const runs = useMemo(() => buildRuns(data.events, data.messages), [data.events, data.messages]);
   const c = countByStatus(data.events);
@@ -32,17 +45,16 @@ export function ConsolePattern({ userId, data }: { userId: string; data: AgentDa
   const sentRatio = finished.length
     ? Math.round((finished.filter((r) => r.outcome === 'sent').length / finished.length) * 100)
     : 0;
-  const shown = runs.filter((r) => filter === 'all' || r.outcome === filter);
-  const outcomes: OutcomeFilter[] = ['all', 'queued', 'running', 'retrying', 'sent', 'silent', 'failed'];
+  const shown = runs.filter((r) => filter === null || r.outcome === filter);
 
   return (
     <div className="console">
       <div className="metrics">
-        <Metric label="待ち" value={c.pending} tone={c.pending ? 'info' : undefined} />
-        <Metric label="処理中" value={c.processing} tone={c.processing ? 'info' : undefined} />
+        <Metric label="待ち" value={c.pending} />
+        <Metric label="処理中" value={c.processing} />
         <Metric label="完了" value={c.done} />
-        <Metric label="失敗" value={c.failed} tone={c.failed ? 'bad' : undefined} />
-        <Metric label="送信した run の割合" value={`${sentRatio}%`} sub={`${finished.length} run 中`} />
+        <Metric label="失敗" value={c.failed} />
+        <Metric label="送信率" value={`${sentRatio}%`} sub={`終わった ${String(finished.length)} run 中`} />
         <Metric label="メッセージ" value={data.messages.length} />
       </div>
 
@@ -50,21 +62,31 @@ export function ConsolePattern({ userId, data }: { userId: string; data: AgentDa
         <section className="runs" aria-label="run の一覧">
           <div className="runs-head">
             <h2>run</h2>
-            <div className="chips" role="group" aria-label="結果で絞り込む">
-              {outcomes.map((o) => (
-                <button
-                  key={o}
-                  type="button"
-                  aria-pressed={filter === o}
-                  className={`chip ${filter === o ? 'chip-active' : ''}`}
-                  onClick={() => {
-                    setFilter(o);
-                  }}
-                >
-                  {o === 'all' ? 'すべて' : OUTCOME_LABEL[o]}
-                </button>
-              ))}
-            </div>
+            {/* 狭い画面では 6 つのボタンが折り返して崩れるので、選ぶ形にする */}
+            {phone ? (
+              <Select
+                aria-label="結果で絞り込む"
+                className="runs-filter"
+                size="sm"
+                options={[
+                  { value: ALL, label: 'すべての結果' },
+                  ...OUTCOMES.map((o) => ({ value: o, label: OUTCOME_LABEL[o] })),
+                ]}
+                value={filter ?? ALL}
+                onChange={(v) => {
+                  setFilter(v === ALL ? null : (v as RunOutcome));
+                }}
+              />
+            ) : (
+              <ToggleGroup<RunOutcome>
+                type="single"
+                aria-label="結果で絞り込む"
+                size="sm"
+                value={filter}
+                onChange={setFilter}
+                items={OUTCOMES.map((o) => ({ value: o, label: OUTCOME_LABEL[o] }))}
+              />
+            )}
           </div>
           <div className="table-wrap">
             <table className="runs-table">
@@ -91,8 +113,22 @@ export function ConsolePattern({ userId, data }: { userId: string; data: AgentDa
                 ))}
               </tbody>
             </table>
-            {shown.length === 0 && (
-              <p className="muted pad">{data.loaded ? '該当する run はありません' : '読み込み中…'}</p>
+            {!data.loaded && <ListSkeleton label="run を読み込み中" />}
+            {data.loaded && shown.length === 0 && (
+              <p className="muted pad">
+                該当する run はありません
+                {filter !== null && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setFilter(null);
+                    }}
+                  >
+                    絞り込みを外す
+                  </Button>
+                )}
+              </p>
             )}
           </div>
         </section>
@@ -103,19 +139,9 @@ export function ConsolePattern({ userId, data }: { userId: string; data: AgentDa
   );
 }
 
-function Metric({
-  label,
-  value,
-  sub,
-  tone,
-}: {
-  label: string;
-  value: number | string;
-  sub?: string;
-  tone?: 'info' | 'bad';
-}) {
+function Metric({ label, value, sub }: { label: string; value: number | string; sub?: string }) {
   return (
-    <div className={`metric ${tone ? `metric-${tone}` : ''}`}>
+    <div className="metric">
       <span className="metric-label">{label}</span>
       <span className="metric-value">{value}</span>
       {sub && <span className="metric-sub">{sub}</span>}
@@ -130,9 +156,14 @@ function RunRow({ r, now, open, onToggle }: { r: Run; now: number; open: boolean
     <>
       <tr className={`run-row ${open ? 'open' : ''} run-${r.outcome}`} onClick={onToggle}>
         <td className="nowrap">
-          <button type="button" className="row-toggle" aria-expanded={open} aria-label="詳細">
-            {open ? '▾' : '▸'}
-          </button>
+          <IconButton
+            size="sm"
+            className="row-toggle"
+            label={open ? '詳細を閉じる' : '詳細を開く'}
+            title=""
+            aria-expanded={open}
+            icon={open ? <ChevronDown size={14} strokeWidth={2} /> : <ChevronRight size={14} strokeWidth={2} />}
+          />
           <span title={r.startedAt}>
             {dayLabel(r.startedAt)} {clock(r.startedAt)}
           </span>
@@ -144,7 +175,9 @@ function RunRow({ r, now, open, onToggle }: { r: Run; now: number; open: boolean
         <td className="run-events">
           {first && <SourceAvatar source={first.source} />}
           <span className="ellipsis">{first ? summarize(first) : ''}</span>
-          {r.events.length > 1 && <span className="badge badge-count">+{r.events.length - 1}</span>}
+          {r.events.length > 1 && (
+            <Badge aria-label={`ほか ${String(r.events.length - 1)} 件`}>+{r.events.length - 1}</Badge>
+          )}
         </td>
         <td className="num" data-label="試行">
           {attempts}
@@ -167,12 +200,7 @@ function RunRow({ r, now, open, onToggle }: { r: Run; now: number; open: boolean
             {r.events.map((e) => (
               <EventDetail key={e.eventId} e={e} />
             ))}
-            {r.messages.map((m) => (
-              <div key={m.messageId} className="msg-detail">
-                <span className="badge badge-sent">send_message{m.importance === 'high' ? ' · high' : ''}</span>
-                <p>{m.text}</p>
-              </div>
-            ))}
+            {r.messages.length > 0 && <SendCalls messages={r.messages} />}
           </td>
         </tr>
       )}
@@ -191,8 +219,32 @@ function EventDetail({ e }: { e: InboxEvent }) {
         <span className="mono">attempts={e.attempts}</span>
       </div>
       {e.lastError && <p className="event-error">lastError: {e.lastError}</p>}
-      <pre className="payload">{JSON.stringify(e.payload, null, 2)}</pre>
+      <CodeBlock language="json" filename="payload" code={JSON.stringify(e.payload, null, 2)} maxHeight={220} />
     </div>
+  );
+}
+
+/**
+ * エージェントが run の中で呼んだ send_message。引数はツールの入力（text・importance）、
+ * 結果は実際のツールが返す文字列と同じ形（src/agent/loop.ts の "sent (messageId=…)"）
+ */
+function SendCalls({ messages }: { messages: StoredMessage[] }) {
+  const cards = messages.map((m) => (
+    <ToolCallCard
+      key={m.messageId}
+      name="send_message"
+      icon={<Send size={16} strokeWidth={1.9} />}
+      summary={firstLine(m.text, 48)}
+      status="success"
+      args={{ text: m.text, importance: m.importance }}
+      result={`sent (messageId=${m.messageId})`}
+    />
+  ));
+  if (cards.length === 1) return <div className="send-calls">{cards}</div>;
+  return (
+    <ToolCallGroup className="send-calls" label={`send_message を ${String(cards.length)} 回`}>
+      {cards}
+    </ToolCallGroup>
   );
 }
 
@@ -214,6 +266,12 @@ const PRESETS: Partial<Record<string, { type: EventType; source: string; payload
   system: { type: 'system', source: 'scheduler', payload: JSON.stringify({ kind: 'daily_check' }, null, 2) },
 };
 
+const EVENT_TYPES = [
+  { value: 'webhook', label: 'webhook', description: '外部サービスからの通知' },
+  { value: 'user_message', label: 'user_message', description: 'あなたからのメッセージ' },
+  { value: 'system', label: 'system', description: '定期実行など、システムから' },
+];
+
 /** 任意のイベントを送るフォーム。本文は実際の API の POST /users/{userId}/events と同じ */
 function SendForm({ userId, onSent }: { userId: string; onSent: () => void }) {
   const [type, setType] = useState<EventType>('webhook');
@@ -221,7 +279,8 @@ function SendForm({ userId, onSent }: { userId: string; onSent: () => void }) {
   const [sourceEventId, setSourceEventId] = useState(() => `delivery-${Date.now().toString(36)}`);
   const [sessionId, setSessionId] = useState('');
   const [payload, setPayload] = useState(PRESETS.github?.payload ?? '{}');
-  const [result, setResult] = useState<{ ok: boolean; text: string }>();
+  const [result, setResult] = useState<{ ok: boolean; status: string; body: string }>();
+  const [payloadError, setPayloadError] = useState<string>();
   const [busy, setBusy] = useState(false);
   // スマホでは run の一覧を先に見せたいので、フォームは折りたたんでおく（広い画面では常に開いている）
   const [open, setOpen] = useState(false);
@@ -236,15 +295,17 @@ function SendForm({ userId, onSent }: { userId: string; onSent: () => void }) {
     setPayload(p.payload);
   };
 
-  const submit = async (e: SyntheticEvent) => {
-    e.preventDefault();
+  const submit = async (e?: SyntheticEvent) => {
+    e?.preventDefault();
+    if (busy) return;
     let parsed: unknown;
     try {
       parsed = JSON.parse(payload);
     } catch {
-      setResult({ ok: false, text: 'payload が JSON ではありません（送信していません）' });
+      setPayloadError('JSON ではないので送っていません');
       return;
     }
+    setPayloadError(undefined);
     const body: PostEventBody = {
       type,
       source,
@@ -255,13 +316,14 @@ function SendForm({ userId, onSent }: { userId: string; onSent: () => void }) {
     setBusy(true);
     try {
       const res = await postEvent(userId, body);
-      setResult({ ok: true, text: `202 ${JSON.stringify(res, null, 2)}` });
+      setResult({ ok: true, status: '202 Accepted', body: JSON.stringify(res, null, 2) });
       onSent();
     } catch (err) {
-      setResult({
-        ok: false,
-        text: err instanceof ApiError ? `${err.status} {"error": "${err.message}"}` : String(err),
-      });
+      setResult(
+        err instanceof ApiError
+          ? { ok: false, status: String(err.status), body: JSON.stringify({ error: err.message }, null, 2) }
+          : { ok: false, status: 'エラー', body: String(err) },
+      );
     } finally {
       setBusy(false);
     }
@@ -286,93 +348,95 @@ function SendForm({ userId, onSent }: { userId: string; onSent: () => void }) {
       )}
       {expanded && (
         <div className="send-form-body">
-          <p className="muted mono small">POST /users/{userId}/events</p>
-          <div className="chips">
+          <code className="endpoint">POST /users/{userId}/events</code>
+          <div className="presets" role="group" aria-label="ひな形">
             {Object.keys(PRESETS).map((k) => (
-              <button
+              <Button
                 key={k}
-                type="button"
-                className="chip"
+                variant="secondary"
+                size="sm"
                 onClick={() => {
                   preset(k);
                 }}
               >
                 {k}
-              </button>
+              </Button>
             ))}
           </div>
           <form onSubmit={(e) => void submit(e)}>
-            <label>
-              type
-              <select
-                value={type}
-                onChange={(e) => {
-                  setType(e.target.value as EventType);
-                }}
-              >
-                <option value="webhook">webhook</option>
-                <option value="user_message">user_message</option>
-                <option value="system">system</option>
-              </select>
-            </label>
-            <label>
-              source
-              <input
-                value={source}
-                onChange={(e) => {
-                  setSource(e.target.value);
-                }}
-              />
-            </label>
-            <label>
-              sourceEventId <span className="muted">（同じ値を 2 回送ると duplicate）</span>
-              <span className="input-row">
-                <input
-                  value={sourceEventId}
-                  onChange={(e) => {
-                    setSourceEventId(e.target.value);
-                  }}
-                />
-                <button
-                  type="button"
-                  className="btn btn-small"
+            <Select
+              label="type"
+              options={EVENT_TYPES}
+              value={type}
+              onChange={(v) => {
+                setType(v as EventType);
+              }}
+            />
+            <TextField
+              label="source"
+              inputClassName="mono-input"
+              value={source}
+              onChange={(e) => {
+                setSource(e.target.value);
+              }}
+            />
+            <TextField
+              label="sourceEventId"
+              hint="同じ値を 2 回送ると duplicate になる"
+              optional
+              inputClassName="mono-input"
+              value={sourceEventId}
+              onChange={(e) => {
+                setSourceEventId(e.target.value);
+              }}
+              suffix={
+                <IconButton
+                  size="sm"
+                  label="新しい ID にする"
+                  icon={<RefreshCw size={14} strokeWidth={1.9} />}
                   onClick={() => {
                     setSourceEventId(`delivery-${Date.now().toString(36)}`);
                   }}
-                >
-                  新しい ID
-                </button>
-              </span>
-            </label>
-            <label>
-              sessionId <span className="muted">（空なら新しい session）</span>
-              <input
-                value={sessionId}
-                onChange={(e) => {
-                  setSessionId(e.target.value);
-                }}
-                placeholder="s-…"
-              />
-            </label>
-            <label>
-              payload
-              <textarea
-                value={payload}
-                onChange={(e) => {
-                  setPayload(e.target.value);
-                }}
-                rows={7}
-                className="mono"
-              />
-            </label>
-            <button type="submit" className="btn btn-primary" disabled={busy}>
-              {busy ? '送信中…' : '送る'}
-            </button>
+                />
+              }
+            />
+            <TextField
+              label="sessionId"
+              hint="空なら新しい session"
+              optional
+              placeholder="s-…"
+              inputClassName="mono-input"
+              value={sessionId}
+              clearable
+              onChange={(e) => {
+                setSessionId(e.target.value);
+              }}
+            />
+            <TextArea
+              label="payload"
+              hint="JSON"
+              inputClassName="mono-input"
+              minRows={6}
+              maxRows={16}
+              expandable
+              value={payload}
+              error={payloadError}
+              onChange={(e) => {
+                setPayload(e.target.value);
+              }}
+              onSubmitShortcut={() => {
+                void submit();
+              }}
+            />
+            <Button type="submit" loading={busy} icon={<Send size={14} strokeWidth={1.9} />}>
+              送る
+            </Button>
           </form>
           {result && (
-            <pre className={`send-result ${result.ok ? 'ok' : 'ng'}`} role="status">
-              {result.text}
-            </pre>
+            <div className="send-result" role="status">
+              <Badge tone={result.ok ? 'success' : 'danger'}>{result.status}</Badge>
+              <CodeBlock language="json" code={result.body} wrap />
+            </div>
           )}
         </div>
       )}

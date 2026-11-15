@@ -1,4 +1,4 @@
-import { ArrowUp, ChevronLeft, X } from 'lucide-react';
+import { ArrowUp, ChevronLeft, FileSearch } from 'lucide-react';
 import {
   useEffect,
   useLayoutEffect,
@@ -9,64 +9,94 @@ import {
   type ReactNode,
   type SyntheticEvent,
 } from 'react';
+import { Avatar } from '@/components/ui/avatar-clean';
+import { Badge, type BadgeTone } from '@/components/ui/badge-clean';
+import { Button } from '@/components/ui/button-clean';
+import { EmptyState } from '@/components/ui/empty-state-clean';
+import { IconButton } from '@/components/ui/icon-button-clean';
+import { Loading, Skeleton } from '@/components/ui/skeleton-clean';
+import { Spinner } from '@/components/ui/spinner-clean';
+import { Tooltip } from '@/components/ui/tooltip-clean';
 import { ApiError, postEvent } from '../api/client';
 import type { EventStatus, PostEventBody, PostEventResponse } from '../api/schema';
 import { OUTCOME_LABEL, SOURCE_LABEL, STATUS_LABEL, type RunOutcome } from './derive';
 
+/** 状態の色は 1 か所で決める。動いているもの（処理中・実行中）だけ点が脈打つ */
+const STATUS_TONE: Record<EventStatus, { tone: BadgeTone; live?: boolean }> = {
+  pending: { tone: 'neutral' },
+  processing: { tone: 'info', live: true },
+  done: { tone: 'success' },
+  failed: { tone: 'danger' },
+};
+
+const OUTCOME_TONE: Record<RunOutcome, { tone: BadgeTone; live?: boolean; dot?: boolean }> = {
+  queued: { tone: 'neutral' },
+  running: { tone: 'info', live: true },
+  retrying: { tone: 'warning', dot: true },
+  sent: { tone: 'success' },
+  silent: { tone: 'neutral' },
+  failed: { tone: 'danger' },
+};
+
 export function StatusBadge({ status }: { status: EventStatus }) {
-  return (
-    <span className={`badge badge-${status}`}>
-      {status === 'processing' && <span className="spinner" aria-hidden />}
-      {STATUS_LABEL[status]}
-    </span>
-  );
+  return <Badge {...STATUS_TONE[status]}>{STATUS_LABEL[status]}</Badge>;
 }
 
 export function OutcomeBadge({ outcome }: { outcome: RunOutcome }) {
-  return (
-    <span className={`badge badge-outcome-${outcome}`}>
-      {outcome === 'running' && <span className="spinner" aria-hidden />}
-      {OUTCOME_LABEL[outcome]}
-    </span>
-  );
+  return <Badge {...OUTCOME_TONE[outcome]}>{OUTCOME_LABEL[outcome]}</Badge>;
 }
 
-export function SourceAvatar({ source }: { source: string }) {
+/** 重要な連絡の印。色の付いたバッジは 1 行に 1 つまで */
+export function HighBadge() {
+  return <Badge tone="warning">重要</Badge>;
+}
+
+/** イベントの送り元。人（あなた）は丸、サービスは角丸の四角 */
+export function SourceAvatar({ source, size = 24 }: { source: string; size?: 20 | 24 | 32 }) {
   const label = SOURCE_LABEL[source] ?? source;
   return (
-    <span className={`avatar avatar-${source}`} title={label} aria-label={label}>
-      {source === 'user' ? 'あ' : label.slice(0, 1).toUpperCase()}
-    </span>
+    <Avatar name={label} seed={source} size={size} shape={source === 'user' ? 'circle' : 'square'} title={label} />
   );
 }
 
-export function AgentAvatar() {
-  return (
-    <span className="avatar avatar-agent" aria-label="エージェント">
-      A
-    </span>
-  );
+/** エージェントの印。作業中はマスがきらめく */
+export function AgentAvatar({ working = false, size = 32 }: { working?: boolean; size?: 24 | 32 }) {
+  return <Avatar kind="agent" seed="always-on-agent" name="エージェント" size={size} working={working} />;
 }
 
-export function Empty({ title, children }: { title: string; children?: ReactNode }) {
+export function Empty({ title, children, icon }: { title: string; children?: ReactNode; icon?: ReactNode }) {
+  return <EmptyState bare title={title} text={children} icon={icon ?? <FileSearch size={18} strokeWidth={1.9} />} />;
+}
+
+/** 一覧の読み込み中。行と同じ形の灰色で、読み込みが終わっても位置がずれない */
+export function ListSkeleton({ label }: { label: string }) {
   return (
-    <div className="empty">
-      <p className="empty-title">{title}</p>
-      {children && <div className="empty-body">{children}</div>}
-    </div>
+    <Loading label={label} className="list-skeleton">
+      {[180, 140, 200, 120].map((w) => (
+        <div key={w} className="list-skeleton-row">
+          <Skeleton line width={w} height={10} />
+          <Skeleton line width={w * 1.4} height={8} />
+        </div>
+      ))}
+    </Loading>
   );
 }
 
 export function ErrorBanner({ message, onRetry }: { message: string; onRetry: () => void }) {
   return (
     <div className="error-banner" role="alert">
-      <span>読み込みに失敗しました（{message}）。表示は前回の内容のままです。</span>
-      <button type="button" className="btn btn-small" onClick={onRetry}>
+      <Badge tone="danger">読み込みエラー</Badge>
+      <span className="error-banner-text">{message}。表示は前回の内容のままです。</span>
+      <Button variant="secondary" size="sm" onClick={onRetry}>
         もう一度読み込む
-      </button>
+      </Button>
     </div>
   );
 }
+
+/** 送るショートカットの表記。Mac は ⌘↵、それ以外は Ctrl+Enter */
+const SEND_SHORTCUT =
+  typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.userAgent) ? '⌘↵' : 'Ctrl+Enter';
 
 /**
  * メッセージの入力欄。送ると POST /users/{userId}/events に text（と sessionId）を送る。
@@ -139,15 +169,16 @@ export function Composer({
           rows={1}
           aria-label="メッセージ"
         />
-        <button
-          type="submit"
-          className="send-btn"
-          disabled={!text.trim() || sending}
-          aria-label={sending ? '送信中' : '送る'}
-          title="送る（⌘/Ctrl + Enter）"
-        >
-          {sending ? <span className="spinner" aria-hidden /> : <ArrowUp size={18} strokeWidth={2.5} aria-hidden />}
-        </button>
+        <Tooltip content="送る" shortcut={SEND_SHORTCUT}>
+          <IconButton
+            type="submit"
+            variant="primary"
+            label={sending ? '送信中' : '送る'}
+            title=""
+            disabled={!text.trim() || sending}
+            icon={sending ? <Spinner size={14} /> : <ArrowUp size={15} strokeWidth={2.25} />}
+          />
+        </Tooltip>
       </div>
     </form>
   );
@@ -170,12 +201,18 @@ export function PaneHeader({
   backLabel?: string;
   children?: ReactNode;
 }) {
+  // 広い画面では一覧が横に見えているので、戻るボタンは出さない
+  const phone = useMediaQuery(PHONE);
   return (
     <header className="pane-head">
-      {onBack && (
-        <button type="button" className="icon-btn pane-back" onClick={onBack} aria-label={backLabel ?? '戻る'}>
-          <ChevronLeft size={24} aria-hidden />
-        </button>
+      {phone && onBack && (
+        <IconButton
+          className="pane-back"
+          label={backLabel ?? '戻る'}
+          title=""
+          onClick={onBack}
+          icon={<ChevronLeft size={20} strokeWidth={2} />}
+        />
       )}
       <div className="pane-title">
         <h2 className="ellipsis">{title}</h2>
@@ -183,52 +220,6 @@ export function PaneHeader({
       </div>
       {children && <div className="pane-actions">{children}</div>}
     </header>
-  );
-}
-
-/**
- * 下から出るシート（広い画面では右上に出るパネル）。<dialog> の showModal を使うので、
- * フォーカスの閉じ込め・Esc で閉じる・背景の操作を止める、はブラウザに任せる。背景を押しても閉じる。
- */
-export function Sheet({
-  open,
-  onClose,
-  title,
-  children,
-}: {
-  open: boolean;
-  onClose: () => void;
-  title: string;
-  children: ReactNode;
-}) {
-  const ref = useRef<HTMLDialogElement>(null);
-  useEffect(() => {
-    const d = ref.current;
-    if (!d) return;
-    if (open && !d.open) d.showModal();
-    if (!open && d.open) d.close();
-  }, [open]);
-
-  return (
-    <dialog
-      ref={ref}
-      className="sheet"
-      aria-label={title}
-      onClose={onClose}
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      <div className="sheet-inner">
-        <div className="sheet-head">
-          <h2>{title}</h2>
-          <button type="button" className="icon-btn" onClick={onClose} aria-label="閉じる">
-            <X size={20} aria-hidden />
-          </button>
-        </div>
-        <div className="sheet-body">{children}</div>
-      </div>
-    </dialog>
   );
 }
 

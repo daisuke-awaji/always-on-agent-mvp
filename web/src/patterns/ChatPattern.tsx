@@ -1,7 +1,19 @@
-import { SquarePen } from 'lucide-react';
+import { MessageSquare, SquarePen } from 'lucide-react';
 import { useEffect, useMemo, useRef } from 'react';
+import { Badge } from '@/components/ui/badge-clean';
+import { Button } from '@/components/ui/button-clean';
+import { ThinkingLoader } from '@/components/ui/thinking-loader-clean';
 import type { InboxEvent } from '../api/schema';
-import { AgentAvatar, Composer, Empty, PaneHeader, SourceAvatar, StatusBadge } from '../ui/components';
+import {
+  AgentAvatar,
+  Composer,
+  Empty,
+  HighBadge,
+  ListSkeleton,
+  PaneHeader,
+  SourceAvatar,
+  StatusBadge,
+} from '../ui/components';
 import {
   buildSessions,
   clock,
@@ -79,18 +91,17 @@ export function ChatPattern({
       <aside className="chat-list split-list" aria-label="会話">
         <div className="chat-list-head">
           <h2>会話</h2>
-          <button
-            type="button"
-            className="btn btn-primary btn-small new-chat"
+          <Button
+            size="sm"
+            icon={<SquarePen size={14} strokeWidth={1.9} />}
             onClick={() => {
               open(NEW);
             }}
           >
-            <SquarePen size={16} aria-hidden />
             新しい会話
-          </button>
+          </Button>
         </div>
-        {!data.loaded && <p className="muted pad">読み込み中…</p>}
+        {!data.loaded && <ListSkeleton label="会話を読み込み中" />}
         <ul>
           {drafts.map((e) => (
             <li key={e.eventId}>
@@ -103,10 +114,11 @@ export function ChatPattern({
               >
                 <span className="chat-list-title">
                   <span className="ellipsis">{summarize(e)}</span>
+                  <span className="chat-list-time">{relativeTime(e.receivedAt, now)}</span>
                 </span>
-                <span className="chat-list-meta">
+                <span className="chat-list-preview">
+                  <span className="ellipsis">新しい会話</span>
                   <StatusBadge status={e.status} />
-                  <span>{relativeTime(e.receivedAt, now)}</span>
                 </span>
               </button>
             </li>
@@ -125,7 +137,9 @@ export function ChatPattern({
           ))}
         </ul>
         {data.loaded && sessions.length === 0 && drafts.length === 0 && (
-          <Empty title="まだ会話がありません">エージェントへの最初のお願いを送ってください。</Empty>
+          <Empty title="まだ会話がありません" icon={<MessageSquare size={18} strokeWidth={1.9} />}>
+            エージェントへの最初のお願いを送ってください。
+          </Empty>
         )}
       </aside>
 
@@ -148,9 +162,9 @@ export function ChatPattern({
           )}
           {missing && <Empty title="この会話は見つかりません" />}
           {!session && !draftEvent && !missing && (
-            <Empty title="エージェントに話しかける">
-              <p>お願いしたいこと、知らせてほしい条件、覚えておいてほしいことを書いてください。</p>
-              <p className="muted">例: 「dmp-procurement リポジトリの通知だけ知らせてください」</p>
+            <Empty title="エージェントに話しかける" icon={<MessageSquare size={18} strokeWidth={1.9} />}>
+              お願いしたいこと、知らせてほしい条件、覚えておいてほしいことを書いてください。例: 「dmp-procurement
+              リポジトリの通知だけ知らせてください」
             </Empty>
           )}
         </div>
@@ -192,20 +206,29 @@ function SessionListItem({
   return (
     <button type="button" className={`chat-list-item ${active ? 'active' : ''}`} onClick={onClick}>
       <span className="chat-list-title">
-        {s.hasHigh && <span className="dot dot-high" title="重要な連絡あり" aria-label="重要な連絡あり" />}
         <span className="ellipsis">{s.title}</span>
+        <span className="chat-list-time">{relativeTime(s.lastAt, now)}</span>
       </span>
-      <span className="chat-list-preview">{preview}</span>
-      <span className="chat-list-meta">
-        {s.busy && <StatusBadge status="processing" />}
-        {s.failed > 0 && <span className="badge badge-failed">失敗 {s.failed}</span>}
-        <span>{relativeTime(s.lastAt, now)}</span>
+      <span className="chat-list-preview">
+        <span className="ellipsis">{preview}</span>
+        {/* 色の付いたバッジは 1 行に 1 つ。いま動いている → 失敗 → 重要 の順に出す */}
+        {s.busy ? (
+          <StatusBadge status="processing" />
+        ) : s.failed > 0 ? (
+          <Badge tone="danger">失敗 {s.failed}</Badge>
+        ) : s.hasHigh ? (
+          <HighBadge />
+        ) : null}
       </span>
     </button>
   );
 }
 
+/** 待っているあいだの表示。実際の状態（受付済みで順番待ち / エージェントが処理中）だけを言う */
+const WAIT_PHASES = ['受付済み・順番を待っています', 'エージェントが作業中'];
+
 function Thread({ items, busy }: { items: TimelineItem[]; busy: boolean }) {
+  const processing = items.some((i) => i.kind === 'event' && i.event.status === 'processing');
   const end = useRef<HTMLDivElement>(null);
   useEffect(() => {
     end.current?.scrollIntoView({ block: 'end' });
@@ -225,7 +248,7 @@ function Thread({ items, busy }: { items: TimelineItem[]; busy: boolean }) {
               <div className={`bubble-row agent ${it.message.importance === 'high' ? 'high' : ''}`}>
                 <AgentAvatar />
                 <div className="bubble">
-                  {it.message.importance === 'high' && <span className="badge badge-high">重要</span>}
+                  {it.message.importance === 'high' && <HighBadge />}
                   <p className="bubble-text">{it.message.text}</p>
                   <span className="bubble-time">{clock(it.at)}</span>
                 </div>
@@ -241,11 +264,7 @@ function Thread({ items, busy }: { items: TimelineItem[]; busy: boolean }) {
       {busy && (
         <div className="bubble-row agent">
           <AgentAvatar />
-          <div className="bubble typing" aria-label="エージェントが作業中">
-            <span />
-            <span />
-            <span />
-          </div>
+          <ThinkingLoader phases={WAIT_PHASES} phase={processing ? 1 : 0} size="sm" />
         </div>
       )}
       <div ref={end} />
@@ -253,15 +272,19 @@ function Thread({ items, busy }: { items: TimelineItem[]; busy: boolean }) {
   );
 }
 
+/** 自分のメッセージ。時刻と状態は吹き出しの外に出す（濃い吹き出しの上だとバッジが読めない） */
 function UserBubble({ e }: { e: InboxEvent }) {
   return (
     <div className="bubble-row user">
-      <div className="bubble">
-        <p className="bubble-text">{detailOf(e)}</p>
-        <span className="bubble-time">
-          {clock(e.receivedAt)} · <StatusBadge status={e.status} />
-          {e.status === 'failed' && <span className="bubble-error">{e.lastError}</span>}
+      <div className="bubble-stack">
+        <div className="bubble">
+          <p className="bubble-text">{detailOf(e)}</p>
+        </div>
+        <span className="bubble-meta">
+          {e.status !== 'done' && <StatusBadge status={e.status} />}
+          {clock(e.receivedAt)}
         </span>
+        {e.status === 'failed' && e.lastError && <span className="bubble-error">{e.lastError}</span>}
       </div>
     </div>
   );
