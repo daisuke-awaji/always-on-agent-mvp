@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { InboxEvent, StoredMessage } from '../api/schema';
-import { buildRuns, buildSessions, summarize } from './derive';
+import { buildSessions, summarize, totalUnread, unreadIds } from './derive';
 
 let n = 0;
 function ev(p: Partial<InboxEvent>): InboxEvent {
@@ -59,26 +59,26 @@ describe('buildSessions', () => {
   });
 });
 
-describe('buildRuns', () => {
-  it('runId ごとにまとめ、送信の有無で結果を分ける', () => {
-    const a = ev({ runId: 'r1' });
-    const b = ev({ runId: 'r1', type: 'webhook', source: 'github', payload: {} });
-    const c = ev({ runId: 'r2', type: 'system', source: 'scheduler', payload: { kind: 'daily_check' } });
-    const runs = buildRuns([a, b, c], [msg({ runId: 'r1', sessionId: 's-1' })]);
-    const byId = new Map(runs.map((r) => [r.runId, r]));
-    expect(byId.get('r1')?.outcome).toBe('sent');
-    expect(byId.get('r1')?.events).toHaveLength(2);
-    expect(byId.get('r2')?.outcome).toBe('silent');
+describe('unreadIds / totalUnread', () => {
+  it('まだ読んでいないエージェントのメッセージだけを数える（自分の発言とイベントは数えない）', () => {
+    const first = ev({ runId: 'r1' });
+    const webhook = ev({ runId: 'r1', type: 'webhook', source: 'github', payload: {} });
+    const m1 = msg({ runId: 'r1', sessionId: 's-1' });
+    const m2 = msg({ runId: 'r1', sessionId: 's-1' });
+    const s = buildSessions([first, webhook], [m1, m2]).at(0);
+    if (!s) throw new Error('session がない');
+    expect(unreadIds(s, new Set())).toEqual([m1.messageId, m2.messageId]);
+    expect(unreadIds(s, new Set([m1.messageId]))).toEqual([m2.messageId]);
+    expect(unreadIds(s, new Set([m1.messageId, m2.messageId]))).toEqual([]);
   });
 
-  it('まだ run に入っていないイベントは待ち、失敗して戻ったものは再試行待ち', () => {
-    const queued = ev({ status: 'pending', attempts: 0 });
-    const retry = ev({ status: 'pending', attempts: 1, runId: 'r5', lastError: 'Throttling' });
-    const failed = ev({ status: 'failed', attempts: 3, runId: 'r6' });
-    const outcomes = buildRuns([queued, retry, failed], [])
-      .map((r) => r.outcome)
-      .sort();
-    expect(outcomes).toEqual(['failed', 'queued', 'retrying']);
+  it('全体の未読数は、会話ごとの未読数の合計', () => {
+    const a = msg({ runId: 'r1', sessionId: 's-1' });
+    const b = msg({ runId: 'r2', sessionId: 's-2' });
+    const c = msg({ runId: 'r3', sessionId: 's-2' });
+    const sessions = buildSessions([], [a, b, c]);
+    expect(totalUnread(sessions, new Set())).toBe(3);
+    expect(totalUnread(sessions, new Set([b.messageId]))).toBe(2);
   });
 });
 

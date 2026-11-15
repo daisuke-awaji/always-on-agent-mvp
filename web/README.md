@@ -11,27 +11,28 @@ npm run dev        # http://localhost:5173
 npm run lint && npm run typecheck && npm test && npm run build
 ```
 
-## Three patterns
+## The screen
 
-The same data, shown three ways (`#/chat`, `#/inbox`, `#/console`):
+One screen: chat. Each session is a thread, and a reply continues the same session. An earlier version compared three patterns (chat, inbox, console); chat was chosen, and the other two were removed. Old links such as `#/inbox/…` open the list of chats.
 
-| | Pattern | Shows |
-| --- | --- | --- |
-| A | Chat | Each session as a thread. A reply continues the same session. |
-| B | Inbox | The agent's messages as notifications, with the events that triggered each one, plus the events it chose not to report. |
-| C | Console | Events and runs as they are (queued → running → sent / silent / failed, retries), and a form to post any event. |
+The API only returns events and sent messages. The UI rebuilds sessions from `runId` and `sessionId` (`src/ui/derive.ts`). An event that the agent decided not to report (a run with no message) belongs to no session, so it does not appear.
 
-The API only returns events and sent messages. The UI rebuilds sessions and runs from `runId` and `sessionId` (`src/ui/derive.ts`).
+### Unread
+
+The API has no read state, so the UI keeps the IDs of the read messages in `localStorage` (`src/ui/readState.ts`).
+
+- Only the agent's messages count, not your own messages or incoming events.
+- Each chat in the list shows its unread count, and its title is bold. The total is next to 会話 (at the top of the list, or in the top bar on phones) and in the browser tab title, for example `(3) 会話 — Always-on Agent`.
+- A message becomes read only when its chat is on screen: not while a phone shows the list, and not while the browser tab is in the background.
 
 ## On phones
 
-- Below 720 px the list and the item are separate screens. The open item is in the URL (`#/chat/<sessionId>`, `#/inbox/<messageId>`), so the device back gesture returns to the list and a link opens the same item.
-- The pattern switch moves to a bottom tab bar, with the unread count on 通知箱. Opening an item hides both bars, so the thread and the reply box get the full height.
+- Below 720 px the list and the chat are separate screens. The open chat is in the URL (`#/chat/<sessionId>`), so the device back gesture returns to the list and a link opens the same chat.
+- The top bar shows 会話 and the unread count. Opening a chat hides it, so the thread and the reply box get the full height.
 - Touch targets are at least 44 px. On touch devices inputs are 16 px, because iOS zooms into smaller ones. Safe-area insets keep content clear of the notch and the home bar, and `visualViewport` keeps the reply box above the iOS keyboard.
 - Enter adds a new line (it also confirms Japanese input). Send with the button or ⌘/Ctrl + Enter.
-- In C, each run becomes a card and the send form is folded.
 
-Checked in headless Chromium with iPhone 13, Pixel 7, and landscape emulation, plus axe. The iOS keyboard and safe areas still need a check on a real device.
+Checked in headless Chromium with iPhone 13, Pixel 7, and landscape emulation, plus axe. axe still reports low contrast on two affectUI badges (重要 and 完了), which keep affectUI's default colors. The iOS keyboard and safe areas still need a check on a real device.
 
 ## UI components (affectUI)
 
@@ -39,15 +40,11 @@ The parts come from [affectUI](https://www.affectui.com/) (free items, MIT), in 
 
 | Where | Item |
 | --- | --- |
-| Statuses, counts, 重要 | Badge |
+| Statuses, unread counts, 重要 | Badge |
 | Buttons, the send button and its shortcut | Button, Icon Button, Tooltip |
 | Sources and the agent | Avatar (the agent is `kind="agent"`) |
-| Waiting for the agent in A | Thinking Loader, its label set from the event's real status (受付済み / 処理中) |
-| Filters | Segmented Control (B), Toggle Group (C, a Select on phones) |
+| Waiting for the agent | Thinking Loader, its label set from the event's real status (受付済み / 処理中) |
 | Mock settings | Dialog (a bottom sheet on phones), Card |
-| C's send form | Select, Text Field, Text Area |
-| C's run detail | Code Block (payload), Tool Call Card (`send_message`, with the same result string as `src/agent/loop.ts`) |
-| Overview | Card |
 | Loading and empty lists | Skeleton, Empty State, Spinner |
 
 Rules:

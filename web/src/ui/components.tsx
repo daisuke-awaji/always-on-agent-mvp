@@ -19,9 +19,9 @@ import { Spinner } from '@/components/ui/spinner-clean';
 import { Tooltip } from '@/components/ui/tooltip-clean';
 import { ApiError, postEvent } from '../api/client';
 import type { EventStatus, PostEventBody, PostEventResponse } from '../api/schema';
-import { OUTCOME_LABEL, SOURCE_LABEL, STATUS_LABEL, type RunOutcome } from './derive';
+import { SOURCE_LABEL, STATUS_LABEL } from './derive';
 
-/** 状態の色は 1 か所で決める。動いているもの（処理中・実行中）だけ点が脈打つ */
+/** 状態の色は 1 か所で決める。動いているもの（処理中）だけ点が脈打つ */
 const STATUS_TONE: Record<EventStatus, { tone: BadgeTone; live?: boolean }> = {
   pending: { tone: 'neutral' },
   processing: { tone: 'info', live: true },
@@ -29,21 +29,18 @@ const STATUS_TONE: Record<EventStatus, { tone: BadgeTone; live?: boolean }> = {
   failed: { tone: 'danger' },
 };
 
-const OUTCOME_TONE: Record<RunOutcome, { tone: BadgeTone; live?: boolean; dot?: boolean }> = {
-  queued: { tone: 'neutral' },
-  running: { tone: 'info', live: true },
-  retrying: { tone: 'warning', dot: true },
-  sent: { tone: 'success' },
-  silent: { tone: 'neutral' },
-  failed: { tone: 'danger' },
-};
-
 export function StatusBadge({ status }: { status: EventStatus }) {
   return <Badge {...STATUS_TONE[status]}>{STATUS_LABEL[status]}</Badge>;
 }
 
-export function OutcomeBadge({ outcome }: { outcome: RunOutcome }) {
-  return <Badge {...OUTCOME_TONE[outcome]}>{OUTCOME_LABEL[outcome]}</Badge>;
+/** 未読の件数。数字は見た目だけにして、読み上げには「未読 3 件」と言う */
+export function UnreadCount({ n }: { n: number }) {
+  return (
+    <>
+      <Badge count={n} aria-hidden />
+      <span className="sr-only">未読 {n} 件</span>
+    </>
+  );
 }
 
 /** 重要な連絡の印。色の付いたバッジは 1 行に 1 つまで */
@@ -251,6 +248,20 @@ export function Toast({ children }: { children: ReactNode }) {
     <div className="toast" role="status">
       {children}
     </div>
+  );
+}
+
+/** ページが見えているか。裏のタブにあるあいだに届いたメッセージは、既読にしない */
+export function usePageVisible(): boolean {
+  return useSyncExternalStore(
+    (onChange) => {
+      document.addEventListener('visibilitychange', onChange);
+      return () => {
+        document.removeEventListener('visibilitychange', onChange);
+      };
+    },
+    () => document.visibilityState === 'visible',
+    () => true,
   );
 }
 
