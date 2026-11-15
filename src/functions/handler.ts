@@ -86,7 +86,10 @@ export function parseEventBody(userId: string, body: Record<string, unknown>): N
   const source = body.source ?? (type === 'user_message' ? 'user' : undefined);
   if (typeof source !== 'string' || !SOURCE_PATTERN.test(source)) return { error: 'invalid source' };
   const sourceEventId = body.sourceEventId;
-  if (sourceEventId !== undefined && (typeof sourceEventId !== 'string' || !SOURCE_EVENT_ID_PATTERN.test(sourceEventId))) {
+  if (
+    sourceEventId !== undefined &&
+    (typeof sourceEventId !== 'string' || !SOURCE_EVENT_ID_PATTERN.test(sourceEventId))
+  ) {
     return { error: 'invalid sourceEventId' };
   }
   if (body.payload === undefined) return { error: 'payload is required' };

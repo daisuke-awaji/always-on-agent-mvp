@@ -12,7 +12,8 @@ export function appendUserContent(messages: Message[], content: ContentBlock[]):
   return [...messages, { role: 'user', content }];
 }
 
-const isPlainUserTurn = (m: Message) => m.role === 'user' && !(m.content ?? []).some((c) => 'toolResult' in c && c.toolResult);
+const isPlainUserTurn = (m: Message) =>
+  m.role === 'user' && !(m.content ?? []).some((c) => 'toolResult' in c && c.toolResult);
 
 /**
  * session が長くなりすぎたら古いメッセージを落とす（記事: "start a new session" / "compact"）。
@@ -38,5 +39,8 @@ export function trimHistory(messages: Message[], opts: { maxMessages: number; ma
 export function withTrailingCachePoint(messages: Message[]): Message[] {
   const last = messages.at(-1);
   if (!last) return messages;
-  return [...messages.slice(0, -1), { ...last, content: [...(last.content ?? []), { cachePoint: { type: 'default' } }] }];
+  return [
+    ...messages.slice(0, -1),
+    { ...last, content: [...(last.content ?? []), { cachePoint: { type: 'default' } }] },
+  ];
 }

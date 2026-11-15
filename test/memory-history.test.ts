@@ -16,9 +16,12 @@ describe('normalizeMemoryPath', () => {
     expect(normalizeMemoryPath(input).path).toBe(expected);
   });
 
-  it.each(['../x.md', 'notes/../../x', 'a/./b', '.hidden', 'a b.md', 'a/b/c/d/e.md', 'x'.repeat(201)])('拒否: %j', (p) => {
-    expect(() => normalizeMemoryPath(p)).toThrow();
-  });
+  it.each(['../x.md', 'notes/../../x', 'a/./b', '.hidden', 'a b.md', 'a/b/c/d/e.md', 'x'.repeat(201)])(
+    '拒否: %j',
+    (p) => {
+      expect(() => normalizeMemoryPath(p)).toThrow();
+    },
+  );
 });
 
 describe('MemoryStore', () => {
@@ -36,17 +39,26 @@ describe('MemoryStore', () => {
   it('str_replace は 1 回だけ出現する文字列のみ置換する', async () => {
     const m = new MemoryStore(new MemFileStore(), 'u');
     await m.execute({ command: 'create', path: 'tasks/index.md', file_text: '- a: todo\n- b: todo\n' });
-    await expect(m.execute({ command: 'str_replace', path: 'tasks/index.md', old_str: 'todo', new_str: 'done' })).rejects.toThrow('found 2');
+    await expect(
+      m.execute({ command: 'str_replace', path: 'tasks/index.md', old_str: 'todo', new_str: 'done' }),
+    ).rejects.toThrow('found 2');
     await m.execute({ command: 'str_replace', path: 'tasks/index.md', old_str: '- a: todo', new_str: '- a: done $&' });
     expect(await m.read('tasks/index.md')).toBe('- a: done $&\n- b: todo\n'); // 置換文字列の $& を特殊扱いしない
   });
 
   it('サイズとファイル数の上限', async () => {
     const m = new MemoryStore(new MemFileStore(), 'u');
-    await expect(m.execute({ command: 'create', path: 'big.md', file_text: 'x'.repeat(MEMORY_LIMITS.maxFileBytes + 1) })).rejects.toThrow('too large');
-    for (let i = 0; i < MEMORY_LIMITS.maxFiles; i++) await m.execute({ command: 'create', path: `n/${i}.md`, file_text: 'x' });
-    await expect(m.execute({ command: 'create', path: 'n/extra.md', file_text: 'x' })).rejects.toThrow('too many files');
-    await expect(m.execute({ command: 'create', path: 'n/0.md', file_text: 'overwrite ok' })).resolves.toBe('overwrote n/0.md');
+    await expect(
+      m.execute({ command: 'create', path: 'big.md', file_text: 'x'.repeat(MEMORY_LIMITS.maxFileBytes + 1) }),
+    ).rejects.toThrow('too large');
+    for (let i = 0; i < MEMORY_LIMITS.maxFiles; i++)
+      await m.execute({ command: 'create', path: `n/${i}.md`, file_text: 'x' });
+    await expect(m.execute({ command: 'create', path: 'n/extra.md', file_text: 'x' })).rejects.toThrow(
+      'too many files',
+    );
+    await expect(m.execute({ command: 'create', path: 'n/0.md', file_text: 'overwrite ok' })).resolves.toBe(
+      'overwrote n/0.md',
+    );
   });
 
   it('delete と存在しないファイル', async () => {
@@ -59,8 +71,14 @@ describe('MemoryStore', () => {
 
 const user = (text: string): Message => ({ role: 'user', content: [{ text }] });
 const asst = (text: string): Message => ({ role: 'assistant', content: [{ text }] });
-const toolUse = (id: string): Message => ({ role: 'assistant', content: [{ toolUse: { toolUseId: id, name: 'memory', input: {} } }] });
-const toolResult = (id: string): Message => ({ role: 'user', content: [{ toolResult: { toolUseId: id, content: [{ text: 'ok' }] } }] });
+const toolUse = (id: string): Message => ({
+  role: 'assistant',
+  content: [{ toolUse: { toolUseId: id, name: 'memory', input: {} } }],
+});
+const toolResult = (id: string): Message => ({
+  role: 'user',
+  content: [{ toolResult: { toolUseId: id, content: [{ text: 'ok' }] } }],
+});
 
 describe('history', () => {
   it('最後が user ならそこにまとめる（user / assistant の交互を保つ）', () => {

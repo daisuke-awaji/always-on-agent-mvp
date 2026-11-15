@@ -57,7 +57,8 @@ describe('groupIntoRuns', () => {
 describe('processUser', () => {
   it('連続して届いたイベントを 1 回の run にまとめ、done にしてリースを解放する', async () => {
     const { inbox, deps, calls } = setup();
-    for (const t of ['a', 'b', 'c']) await inbox.appendEvent({ userId: 'u', type: 'user_message', source: 'user', payload: { text: t } });
+    for (const t of ['a', 'b', 'c'])
+      await inbox.appendEvent({ userId: 'u', type: 'user_message', source: 'user', payload: { text: t } });
     const res = await processUser('u', deps, opts);
     expect(res.status).toBe('ok');
     expect(calls).toHaveLength(1);
@@ -103,7 +104,8 @@ describe('processUser', () => {
     await inbox.appendEvent({ userId: 'u', type: 'user_message', source: 'user', payload: { text: 'first' } });
     deps.invokeRun = async (req) => {
       calls.push(req);
-      if (calls.length === 1) await inbox.appendEvent({ userId: 'u', type: 'webhook', source: 'gh', payload: { text: 'late' } });
+      if (calls.length === 1)
+        await inbox.appendEvent({ userId: 'u', type: 'webhook', source: 'gh', payload: { text: 'late' } });
       return ok(req);
     };
     await processUser('u', deps, opts);
@@ -118,7 +120,11 @@ describe('processUser', () => {
     const res = await processUser('u', deps, opts);
     expect(calls).toHaveLength(3);
     expect(res.status === 'ok' && res.runs.every((r) => !r.ok)).toBe(true);
-    expect((await inbox.listRecentEvents('u', 1))[0]).toMatchObject({ status: 'failed', attempts: 3, lastError: 'boom' });
+    expect((await inbox.listRecentEvents('u', 1))[0]).toMatchObject({
+      status: 'failed',
+      attempts: 3,
+      lastError: 'boom',
+    });
     expect(inbox.leases.size).toBe(0);
   });
 

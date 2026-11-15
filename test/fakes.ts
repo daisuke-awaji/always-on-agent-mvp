@@ -31,9 +31,18 @@ export class InMemoryInbox implements InboxRepository {
     const receivedAt = new Date(this.now() + this.seq++).toISOString();
     const eventId = randomUUID();
     const sk = eventSk(receivedAt, eventId);
-    const event: InboxEvent = { ...input, eventId, sk, status: 'pending', attempts: 0, receivedAt, updatedAt: receivedAt };
+    const event: InboxEvent = {
+      ...input,
+      eventId,
+      sk,
+      status: 'pending',
+      attempts: 0,
+      receivedAt,
+      updatedAt: receivedAt,
+    };
     this.events.set(`${input.userId}|${sk}`, event);
-    if (input.sourceEventId) this.dedup.set(`${input.userId}|${input.source}|${input.sourceEventId}`, `${input.userId}|${sk}`);
+    if (input.sourceEventId)
+      this.dedup.set(`${input.userId}|${input.source}|${input.sourceEventId}`, `${input.userId}|${sk}`);
     return { event: structuredClone(event), duplicate: false };
   }
 
@@ -51,7 +60,10 @@ export class InMemoryInbox implements InboxRepository {
   }
 
   async listRecentEvents(userId: string, limit: number) {
-    return this.forUser(userId).reverse().slice(0, limit).map((e) => structuredClone(e));
+    return this.forUser(userId)
+      .reverse()
+      .slice(0, limit)
+      .map((e) => structuredClone(e));
   }
 
   private get(userId: string, e: InboxEvent) {
@@ -104,12 +116,19 @@ export class InMemoryInbox implements InboxRepository {
 export class InMemoryMessages implements MessageRepository {
   items: StoredMessage[] = [];
   async put(msg: Omit<StoredMessage, 'messageId' | 'createdAt'>) {
-    const stored = { ...msg, messageId: randomUUID(), createdAt: new Date(Date.now() + this.items.length).toISOString() };
+    const stored = {
+      ...msg,
+      messageId: randomUUID(),
+      createdAt: new Date(Date.now() + this.items.length).toISOString(),
+    };
     this.items.push(stored);
     return stored;
   }
   async listRecent(userId: string, limit: number) {
-    return this.items.filter((m) => m.userId === userId).reverse().slice(0, limit);
+    return this.items
+      .filter((m) => m.userId === userId)
+      .reverse()
+      .slice(0, limit);
   }
 }
 
@@ -144,11 +163,20 @@ export function scriptedConverse(steps: ScriptStep[] | ((input: ConverseCommandI
     i++;
     const content: ContentBlock[] = [];
     if (step.text) content.push({ text: step.text });
-    for (const t of step.tools ?? []) content.push({ toolUse: { toolUseId: `tu-${i}-${t.name}-${randomUUID().slice(0, 4)}`, name: t.name, input: t.input as never } });
+    for (const t of step.tools ?? [])
+      content.push({
+        toolUse: { toolUseId: `tu-${i}-${t.name}-${randomUUID().slice(0, 4)}`, name: t.name, input: t.input as never },
+      });
     return {
       output: { message: { role: 'assistant', content } },
       stopReason: step.tools?.length ? 'tool_use' : 'end_turn',
-      usage: { inputTokens: 100, outputTokens: 10, totalTokens: 110, cacheReadInputTokens: 50, cacheWriteInputTokens: 0 },
+      usage: {
+        inputTokens: 100,
+        outputTokens: 10,
+        totalTokens: 110,
+        cacheReadInputTokens: 50,
+        cacheWriteInputTokens: 0,
+      },
     };
   };
   return { fn, calls };

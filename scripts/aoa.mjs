@@ -67,17 +67,28 @@ switch (cmd) {
   }
   case 'webhook': {
     const [source, sourceEventId, payload] = rest;
-    console.log(await call('POST', `/users/${userId}/events`, { type: 'webhook', source, sourceEventId, payload: JSON.parse(payload ?? '{}') }));
+    console.log(
+      await call('POST', `/users/${userId}/events`, {
+        type: 'webhook',
+        source,
+        sourceEventId,
+        payload: JSON.parse(payload ?? '{}'),
+      }),
+    );
     break;
   }
   case 'messages': {
     const { messages } = await call('GET', `/users/${userId}/messages`, undefined, { limit: '10' });
-    for (const m of messages.reverse()) console.log(`[${m.createdAt}] (session ${m.sessionId})${m.importance === 'high' ? ' [重要]' : ''}\n${m.text}\n`);
+    for (const m of messages.reverse())
+      console.log(`[${m.createdAt}] (session ${m.sessionId})${m.importance === 'high' ? ' [重要]' : ''}\n${m.text}\n`);
     break;
   }
   case 'events': {
     const { events } = await call('GET', `/users/${userId}/events`, undefined, { limit: '20' });
-    for (const e of events) console.log(`${e.receivedAt}  ${e.status.padEnd(10)} attempts=${e.attempts}  ${e.type}/${e.source}${e.lastError ? `  error=${e.lastError}` : ''}`);
+    for (const e of events)
+      console.log(
+        `${e.receivedAt}  ${e.status.padEnd(10)} attempts=${e.attempts}  ${e.type}/${e.source}${e.lastError ? `  error=${e.lastError}` : ''}`,
+      );
     break;
   }
   default:

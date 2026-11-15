@@ -67,7 +67,11 @@ export function groupIntoRuns(events: InboxEvent[], newSessionId: () => string):
       fresh.push(e);
     }
   }
-  const batches: RunBatch[] = [...bySession.entries()].map(([sessionId, evs]) => ({ sessionId, resume: true, events: evs }));
+  const batches: RunBatch[] = [...bySession.entries()].map(([sessionId, evs]) => ({
+    sessionId,
+    resume: true,
+    events: evs,
+  }));
   if (fresh.length > 0) batches.push({ sessionId: newSessionId(), resume: false, events: fresh });
   // 先に届いたイベントを含む run から順に処理する
   return batches.sort((a, b) => a.events[0].receivedAt.localeCompare(b.events[0].receivedAt));
@@ -127,9 +131,7 @@ async function executeRun(userId: string, batch: RunBatch, deps: WorkerDeps, opt
         receivedAt: e.receivedAt,
         payload: e.payload,
       })),
-      recentMessages: recent
-        .map((m) => ({ createdAt: m.createdAt, sessionId: m.sessionId, text: m.text }))
-        .reverse(), // 古い順に並べ替える
+      recentMessages: recent.map((m) => ({ createdAt: m.createdAt, sessionId: m.sessionId, text: m.text })).reverse(), // 古い順に並べ替える
     };
     deps.log('run start', { userId, runId, sessionId: batch.sessionId, resume: batch.resume, eventIds });
     const result = await deps.invokeRun(req);

@@ -21,7 +21,8 @@ export function createAgentServer(deps: AgentDeps): Server {
   const handle = async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
     try {
       if (req.method === 'GET' && req.url === '/ping') {
-        send(res, 200, { status: busy > 0 ? 'HealthyBusy' : 'Healthy', time_of_last_update: lastUpdate }); return;
+        send(res, 200, { status: busy > 0 ? 'HealthyBusy' : 'Healthy', time_of_last_update: lastUpdate });
+        return;
       }
       if (req.method === 'POST' && req.url?.startsWith('/invocations')) {
         const body = await readBody(req);
@@ -30,7 +31,8 @@ export function createAgentServer(deps: AgentDeps): Server {
         lastUpdate = Math.floor(Date.now() / 1000);
         try {
           const result = await runAgent(runReq, deps);
-          send(res, 200, result); return;
+          send(res, 200, result);
+          return;
         } finally {
           busy--;
           lastUpdate = Math.floor(Date.now() / 1000);
@@ -47,7 +49,9 @@ export function createAgentServer(deps: AgentDeps): Server {
   return createServer((req, res) => {
     // handle 内で例外は処理済み。ここに来るのは応答の送信自体に失敗したときだけ
     handle(req, res).catch((err: unknown) => {
-      console.error(JSON.stringify({ msg: 'failed to send response', error: err instanceof Error ? err.message : String(err) }));
+      console.error(
+        JSON.stringify({ msg: 'failed to send response', error: err instanceof Error ? err.message : String(err) }),
+      );
       res.destroy();
     });
   });
@@ -76,7 +80,9 @@ function readBody(req: IncomingMessage): Promise<string> {
         req.destroy();
       } else chunks.push(c);
     });
-    req.on('end', () => { resolveBody(Buffer.concat(chunks).toString('utf-8')); });
+    req.on('end', () => {
+      resolveBody(Buffer.concat(chunks).toString('utf-8'));
+    });
     req.on('error', reject);
   });
 }
@@ -90,7 +96,9 @@ function send(res: ServerResponse, status: number, body: unknown) {
 export function depsFromEnv(env = process.env): AgentDeps {
   const bedrock = new BedrockRuntimeClient({});
   const modelId = env.MODEL_ID ?? 'jp.anthropic.claude-sonnet-4-6';
-  const log = (msg: string, data?: Record<string, unknown>) => { console.log(JSON.stringify({ msg, ...data })); };
+  const log = (msg: string, data?: Record<string, unknown>) => {
+    console.log(JSON.stringify({ msg, ...data }));
+  };
   const converse: AgentDeps['converse'] = (input) => bedrock.send(new ConverseCommand(input));
 
   if (env.STORE === 'local') {

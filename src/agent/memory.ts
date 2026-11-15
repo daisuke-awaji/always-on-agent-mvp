@@ -35,7 +35,8 @@ export function normalizeMemoryPath(input: string): { path: string; isDir: boole
   if (p.length > MEMORY_LIMITS.maxPathLength) throw new MemoryError('path too long');
   if (p === '') return { path: '', isDir: true };
   const segments = p.split('/');
-  if (segments.length > MEMORY_LIMITS.maxDepth) throw new MemoryError(`path depth must be <= ${MEMORY_LIMITS.maxDepth}`);
+  if (segments.length > MEMORY_LIMITS.maxDepth)
+    throw new MemoryError(`path depth must be <= ${MEMORY_LIMITS.maxDepth}`);
   for (const s of segments) {
     if (s === '.' || s === '..' || !SEGMENT.test(s)) throw new MemoryError(`invalid path segment: ${s}`);
   }
@@ -88,7 +89,9 @@ export class MemoryStore {
         this.checkSize(text);
         const existing = await this.files.get(this.key(path));
         if (existing === undefined && (await this.listAll()).length >= MEMORY_LIMITS.maxFiles) {
-          throw new MemoryError(`too many files (max ${MEMORY_LIMITS.maxFiles}). 不要なファイルを削除するか統合してください`);
+          throw new MemoryError(
+            `too many files (max ${MEMORY_LIMITS.maxFiles}). 不要なファイルを削除するか統合してください`,
+          );
         }
         await this.files.put(this.key(path), text);
         return existing === undefined ? `created ${path}` : `overwrote ${path}`;
@@ -119,7 +122,9 @@ export class MemoryStore {
 
   private checkSize(text: string) {
     if (Buffer.byteLength(text, 'utf8') > MEMORY_LIMITS.maxFileBytes) {
-      throw new MemoryError(`file too large (max ${MEMORY_LIMITS.maxFileBytes} bytes). 内容を要約するか分割してください`);
+      throw new MemoryError(
+        `file too large (max ${MEMORY_LIMITS.maxFileBytes} bytes). 内容を要約するか分割してください`,
+      );
     }
   }
 }

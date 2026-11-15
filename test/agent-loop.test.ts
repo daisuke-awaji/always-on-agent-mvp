@@ -12,7 +12,14 @@ function setup(steps: ScriptStep[] | Parameters<typeof scriptedConverse>[0]) {
   const sent: OutgoingMessage[] = [];
   const sender: Sender = { send: async (m) => (sent.push(m), { messageId: `m${sent.length}` }) };
   const { fn, calls } = scriptedConverse(steps);
-  const deps: AgentDeps = { converse: fn, files, sessions: new SessionStore(files), sender, modelId: 'test-model', now: () => new Date('2026-11-15T00:00:00Z') };
+  const deps: AgentDeps = {
+    converse: fn,
+    files,
+    sessions: new SessionStore(files),
+    sender,
+    modelId: 'test-model',
+    now: () => new Date('2026-11-15T00:00:00Z'),
+  };
   return { files, sent, calls, deps };
 }
 
@@ -20,7 +27,15 @@ const req = (over: Partial<RunRequest> = {}): RunRequest => ({
   runId: 'run-1',
   userId: 'alice',
   sessionId: SID,
-  events: [{ eventId: 'e1', type: 'user_message', source: 'user', receivedAt: '2026-11-15T00:00:00Z', payload: { text: '私は調達担当です' } }],
+  events: [
+    {
+      eventId: 'e1',
+      type: 'user_message',
+      source: 'user',
+      receivedAt: '2026-11-15T00:00:00Z',
+      payload: { text: '私は調達担当です' },
+    },
+  ],
   recentMessages: [],
   ...over,
 });
@@ -28,15 +43,31 @@ const req = (over: Partial<RunRequest> = {}): RunRequest => ({
 describe('runAgent', () => {
   it('メモリに書き、メッセージを送り、session を保存する', async () => {
     const { files, sent, calls, deps } = setup([
-      { tools: [{ name: 'memory', input: { command: 'create', path: 'notes/index.md', file_text: '- role: 調達担当' } }] },
+      {
+        tools: [
+          { name: 'memory', input: { command: 'create', path: 'notes/index.md', file_text: '- role: 調達担当' } },
+        ],
+      },
       { tools: [{ name: 'send_message', input: { text: '了解しました。' } }] },
       { text: '役割を記録し、返信した。' },
     ]);
     const result = await runAgent(req(), deps);
-    expect(result).toMatchObject({ runId: 'run-1', outcome: 'sent', messagesSent: 1, turns: 3, stopReason: 'end_turn' });
+    expect(result).toMatchObject({
+      runId: 'run-1',
+      outcome: 'sent',
+      messagesSent: 1,
+      turns: 3,
+      stopReason: 'end_turn',
+    });
     expect(result.usage).toMatchObject({ inputTokens: 300, cacheReadInputTokens: 150 });
     expect(files.files.get('memory/alice/notes/index.md')).toBe('- role: 調達担当');
-    expect(sent[0]).toMatchObject({ userId: 'alice', sessionId: SID, runId: 'run-1', text: '了解しました。', importance: 'normal' });
+    expect(sent[0]).toMatchObject({
+      userId: 'alice',
+      sessionId: SID,
+      runId: 'run-1',
+      text: '了解しました。',
+      importance: 'normal',
+    });
 
     // 静的プロンプト → cachePoint → 動的文脈 の順。イベントは <events> で囲む
     const first = calls[0];
@@ -56,7 +87,13 @@ describe('runAgent', () => {
     const { files, calls, deps } = setup([{ text: 'ok' }, { text: 'ok2' }]);
     await files.put('memory/alice/instructions.md', '深夜は連絡しない');
     await runAgent(req(), deps);
-    await runAgent(req({ runId: 'run-2', events: [{ eventId: 'e2', type: 'webhook', source: 'github', receivedAt: 'x', payload: { a: 1 } }] }), deps);
+    await runAgent(
+      req({
+        runId: 'run-2',
+        events: [{ eventId: 'e2', type: 'webhook', source: 'github', receivedAt: 'x', payload: { a: 1 } }],
+      }),
+      deps,
+    );
     const second = calls[1];
     expect(second.system![2].text).toContain('以前の session の続き');
     expect(second.system![2].text).toContain('深夜は連絡しない');
@@ -91,7 +128,10 @@ describe('runAgent', () => {
       { text: 'done' },
     ]);
     await runAgent(req(), deps);
-    const results = calls[1].messages!.at(-1)!.content!.filter((c) => c.toolResult).map((c) => c.toolResult!);
+    const results = calls[1]
+      .messages!.at(-1)!
+      .content!.filter((c) => c.toolResult)
+      .map((c) => c.toolResult!);
     expect(results.map((r) => r.status)).toEqual(['error', 'error']);
     expect(results[1].content![0].text).toContain('unknown tool');
   });

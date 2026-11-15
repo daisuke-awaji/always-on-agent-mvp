@@ -1,5 +1,16 @@
-import { ConditionalCheckFailedException, DynamoDBClient, TransactionCanceledException } from '@aws-sdk/client-dynamodb';
-import { DeleteCommand, DynamoDBDocumentClient, GetCommand, QueryCommand, TransactWriteCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import {
+  ConditionalCheckFailedException,
+  DynamoDBClient,
+  TransactionCanceledException,
+} from '@aws-sdk/client-dynamodb';
+import {
+  DeleteCommand,
+  DynamoDBDocumentClient,
+  GetCommand,
+  QueryCommand,
+  TransactWriteCommand,
+  UpdateCommand,
+} from '@aws-sdk/lib-dynamodb';
 import { mockClient } from 'aws-sdk-client-mock';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { DynamoInboxRepository } from '../src/shared/inbox-repo.js';
@@ -37,7 +48,10 @@ describe('appendEvent', () => {
     expect(event.sk).toBe(`EVT#2026-11-15T00:00:00.000Z#${event.eventId}`);
     const items = ddb.commandCalls(TransactWriteCommand)[0].args[0].input.TransactItems!;
     expect(items).toHaveLength(2);
-    expect(items[0].Put).toMatchObject({ Item: { pk: 'USER#u', sk: 'DEDUP#github#d-1' }, ConditionExpression: 'attribute_not_exists(pk)' });
+    expect(items[0].Put).toMatchObject({
+      Item: { pk: 'USER#u', sk: 'DEDUP#github#d-1' },
+      ConditionExpression: 'attribute_not_exists(pk)',
+    });
     expect(items[1].Put).toMatchObject({ Item: { pk: 'USER#u', status: 'pending', attempts: 0 } });
   });
 
@@ -54,14 +68,22 @@ describe('appendEvent', () => {
       .resolves({ Item: { eventSk: 'EVT#old#e-0' } })
       .on(GetCommand, { Key: { pk: 'USER#u', sk: 'EVT#old#e-0' } })
       .resolves({ Item: { pk: 'USER#u', sk: 'EVT#old#e-0', eventId: 'e-0', status: 'done', ttl: 1 } });
-    const r = await repo().appendEvent({ userId: 'u', type: 'webhook', source: 'github', sourceEventId: 'd-1', payload: {} });
+    const r = await repo().appendEvent({
+      userId: 'u',
+      type: 'webhook',
+      source: 'github',
+      sourceEventId: 'd-1',
+      payload: {},
+    });
     expect(r.duplicate).toBe(true);
     expect(r.event).toEqual({ sk: 'EVT#old#e-0', eventId: 'e-0', status: 'done' });
   });
 
   it('それ以外のエラーはそのまま投げる', async () => {
     ddb.on(TransactWriteCommand).rejects(new Error('throttled'));
-    await expect(repo().appendEvent({ userId: 'u', type: 'webhook', source: 'x', sourceEventId: '1', payload: {} })).rejects.toThrow('throttled');
+    await expect(
+      repo().appendEvent({ userId: 'u', type: 'webhook', source: 'x', sourceEventId: '1', payload: {} }),
+    ).rejects.toThrow('throttled');
   });
 });
 
@@ -69,7 +91,10 @@ describe('listOpenEvents', () => {
   it('強整合読み込みでページングしながら pending / processing を取得する', async () => {
     ddb
       .on(QueryCommand)
-      .resolvesOnce({ Items: [{ pk: 'USER#u', sk: 'EVT#1', eventId: '1' }], LastEvaluatedKey: { pk: 'USER#u', sk: 'EVT#1' } })
+      .resolvesOnce({
+        Items: [{ pk: 'USER#u', sk: 'EVT#1', eventId: '1' }],
+        LastEvaluatedKey: { pk: 'USER#u', sk: 'EVT#1' },
+      })
       .resolvesOnce({ Items: [{ pk: 'USER#u', sk: 'EVT#2', eventId: '2' }] });
     const events = await repo().listOpenEvents('u');
     expect(events.map((e) => e.eventId)).toEqual(['1', '2']);
@@ -86,7 +111,11 @@ describe('lease', () => {
     expect(await repo().acquireLease('u', 'w1', 60_000)).toBe(true);
     const input = ddb.commandCalls(UpdateCommand)[0].args[0].input;
     expect(input.ConditionExpression).toBe('attribute_not_exists(pk) OR leaseUntil < :now OR #owner = :owner');
-    expect(input.ExpressionAttributeValues).toMatchObject({ ':owner': 'w1', ':now': fixedNow.getTime(), ':until': fixedNow.getTime() + 60_000 });
+    expect(input.ExpressionAttributeValues).toMatchObject({
+      ':owner': 'w1',
+      ':now': fixedNow.getTime(),
+      ':until': fixedNow.getTime() + 60_000,
+    });
   });
 
   it('条件に合わなければ false', async () => {
