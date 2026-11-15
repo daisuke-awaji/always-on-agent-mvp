@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   check:
-    name: typecheck / test / cdk synth
+    name: lint / format / typecheck / test / cdk synth
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
@@ -35,8 +35,18 @@ jobs:
       - name: Install
         run: npm ci
 
+      - name: Lint
+        run: npm run lint
+
+      - name: Format check
+        run: npm run format:check
+
       - name: Typecheck
-        run: npm run typecheck
+        # tsc は TypeScript 7（@typescript/native）。ESLint は typescript = 6.0 の API を使う
+        run: |
+          npx tsc --version
+          node -p "'typescript (API for ESLint): ' + require('typescript').version"
+          npm run typecheck
 
       - name: Test
         run: npm test

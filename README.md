@@ -106,6 +106,9 @@ test/                            vitest (unit, integration, CDK assertions)
 
 ```bash
 npm ci
+npm run lint             # ESLint (type-aware)
+npm run format:check     # Prettier
+npm run typecheck        # tsc (TypeScript 7)
 npm test                 # Unit, integration, and CDK assertion tests (no AWS access)
 npx cdk synth            # Bundles the agent, then synthesizes
 
@@ -155,13 +158,28 @@ node scripts/local-scenario.mjs     # In another terminal: 4 runs (instructions 
 
 ### CI
 
-[`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs `npm ci` → `npm run typecheck` → `npm test` → `cdk synth` on every push to `main` and on every pull request. The synthesized CloudFormation template is kept as an artifact (`cloudformation-template`, 7 days). It passes no AWS credentials, and both tests and synth complete without AWS access. Actions are pinned to commit SHAs, and the workflow token is limited to `contents: read`.
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs `npm ci` → `npm run lint` → `npm run format:check` → `npm run typecheck` → `npm test` → `cdk synth` on every push to `main` and on every pull request. The synthesized CloudFormation template is kept as an artifact (`cloudformation-template`, 7 days). It passes no AWS credentials, and both tests and synth complete without AWS access. Actions are pinned to commit SHAs, and the workflow token is limited to `contents: read`.
 
 To run the same checks locally:
 
 ```bash
-npm ci && npm run typecheck && npm test && npx cdk synth --quiet
+npm ci && npm run lint && npm run format:check && npm run typecheck && npm test && npx cdk synth --quiet
 ```
+
+### Lint and format
+
+- ESLint: `typescript-eslint` `strictTypeChecked` for all TypeScript, `@vitest/eslint-plugin` for `test/`, and `eslint-config-prettier` so ESLint does not check formatting. See [`eslint.config.mjs`](eslint.config.mjs) for the few rule options and the test-only relaxations.
+- Prettier: `singleQuote`, `printWidth: 120`. Markdown is not formatted.
+- `npm run lint:fix` and `npm run format` apply fixes. The formatting commit is listed in [`.git-blame-ignore-revs`](.git-blame-ignore-revs) (`git config blame.ignoreRevsFile .git-blame-ignore-revs`).
+
+TypeScript 7 does not ship a compiler API yet, and `typescript-eslint` only supports TypeScript up to 6.0 ([typescript-eslint#10940](https://github.com/typescript-eslint/typescript-eslint/issues/10940)). The two are installed side by side, as the TypeScript team recommends:
+
+| Package name | Resolves to | Used by |
+| --- | --- | --- |
+| `@typescript/native` | `typescript@7` | `tsc` (`npm run typecheck`) |
+| `typescript` | `@typescript/typescript6` (6.0 API, `tsc6`) | ESLint (`require('typescript')`) |
+
+When `typescript-eslint` supports TypeScript 7, replace both with a single `typescript@7`.
 
 ### Teardown
 
