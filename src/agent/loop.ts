@@ -13,7 +13,9 @@ import { STATIC_SYSTEM_PROMPT, buildDynamicContext, formatEvents } from './promp
 import type { Sender } from './sender.js';
 import type { FileStore, SessionRecord, SessionStore } from './stores.js';
 
-export type ConverseFn = (input: ConverseCommandInput) => Promise<Pick<ConverseCommandOutput, 'output' | 'stopReason' | 'usage'>>;
+export type ConverseFn = (
+  input: ConverseCommandInput,
+) => Promise<Pick<ConverseCommandOutput, 'output' | 'stopReason' | 'usage'>>;
 
 export interface AgentDeps {
   converse: ConverseFn;
@@ -67,7 +69,10 @@ export const TOOLS: Tool[] = [
         json: {
           type: 'object',
           properties: {
-            text: { type: 'string', description: `ユーザーに届ける本文（${AGENT_LIMITS.maxMessageChars} 文字以内）。結論から短く。` },
+            text: {
+              type: 'string',
+              description: `ユーザーに届ける本文（${AGENT_LIMITS.maxMessageChars} 文字以内）。結論から短く。`,
+            },
             importance: { type: 'string', enum: ['normal', 'high'], description: 'すぐ見てほしいときだけ high' },
           },
           required: ['text'],
@@ -157,9 +162,12 @@ export async function runAgent(req: RunRequest, deps: AgentDeps): Promise<RunRes
         } else if (tu.name === 'send_message') {
           const text = typeof input.text === 'string' ? input.text.trim() : '';
           if (!text) throw new Error('text is required');
-          if (text.length > AGENT_LIMITS.maxMessageChars) throw new Error(`text must be <= ${AGENT_LIMITS.maxMessageChars} chars`);
+          if (text.length > AGENT_LIMITS.maxMessageChars)
+            throw new Error(`text must be <= ${AGENT_LIMITS.maxMessageChars} chars`);
           if (sends >= AGENT_LIMITS.maxSendsPerRun) {
-            throw new Error(`この run ではもう送れません（上限 ${AGENT_LIMITS.maxSendsPerRun} 通）。必要なら内容をまとめてください`);
+            throw new Error(
+              `この run ではもう送れません（上限 ${AGENT_LIMITS.maxSendsPerRun} 通）。必要なら内容をまとめてください`,
+            );
           }
           const importance = input.importance === 'high' ? 'high' : 'normal';
           const { messageId } = await deps.sender.send({

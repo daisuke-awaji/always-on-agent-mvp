@@ -27,8 +27,14 @@ const { fn: converse, calls } = scriptedConverse((input) => {
   if (hasToolResult) return { text: 'run 終了' };
   const text = last.content!.map((c) => c.text ?? '').join('');
   const count = Number(/count="(\d+)"/.exec(text)?.[1] ?? 0);
-  const tools: { name: string; input: Record<string, unknown> }[] = [{ name: 'send_message', input: { text: `${count} 件受け取りました` } }];
-  if (text.includes('深夜')) tools.push({ name: 'memory', input: { command: 'create', path: 'instructions.md', file_text: '- 深夜は連絡しない' } });
+  const tools: { name: string; input: Record<string, unknown> }[] = [
+    { name: 'send_message', input: { text: `${count} 件受け取りました` } },
+  ];
+  if (text.includes('深夜'))
+    tools.push({
+      name: 'memory',
+      input: { command: 'create', path: 'instructions.md', file_text: '- 深夜は連絡しない' },
+    });
   return { tools };
 });
 
@@ -40,11 +46,22 @@ beforeAll(async () => {
   await new Promise<void>((r) => server.listen(0, '127.0.0.1', r));
   baseUrl = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
 });
-afterAll(() => new Promise<void>((r) => server.close(() => { r(); })));
+afterAll(
+  () =>
+    new Promise<void>((r) =>
+      server.close(() => {
+        r();
+      }),
+    ),
+);
 
-const handler = buildHandler({ inbox, messages, wake: async () => {
-      wakes++;
-    } });
+const handler = buildHandler({
+  inbox,
+  messages,
+  wake: async () => {
+    wakes++;
+  },
+});
 let n = 0;
 const workerDeps: WorkerDeps = {
   inbox,
@@ -100,7 +117,10 @@ describe('end-to-end (in-process)', () => {
   });
 
   it('agent が 400 を返す不正なリクエストは run の失敗として扱われる', async () => {
-    const res = await fetch(`${baseUrl}/invocations`, { method: 'POST', body: JSON.stringify({ runId: 'x', userId: 'alice', sessionId: 'bad', events: [] }) });
+    const res = await fetch(`${baseUrl}/invocations`, {
+      method: 'POST',
+      body: JSON.stringify({ runId: 'x', userId: 'alice', sessionId: 'bad', events: [] }),
+    });
     expect(res.status).toBe(400);
   });
 });

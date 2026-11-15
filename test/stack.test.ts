@@ -37,7 +37,9 @@ describe('AlwaysOnAgentStack', () => {
       Timeout: 900,
       Environment: { Variables: Match.objectLike({ AGENT_RUNTIME_ARN: Match.anyValue() }) },
     });
-    template.hasResourceProperties('AWS::Lambda::EventSourceMapping', { FunctionResponseTypes: ['ReportBatchItemFailures'] });
+    template.hasResourceProperties('AWS::Lambda::EventSourceMapping', {
+      FunctionResponseTypes: ['ReportBatchItemFailures'],
+    });
   });
 
   it('テーブルは TTL と PITR を有効にし、RETAIN 指定なら残す', () => {
@@ -51,9 +53,9 @@ describe('AlwaysOnAgentStack', () => {
 
   it('API はすべて IAM 認証', () => {
     const methods = template.findResources('AWS::ApiGateway::Method');
-    const nonOptions = (Object.values(methods) as { Properties: { HttpMethod: string; AuthorizationType: string } }[]).filter(
-      (m) => m.Properties.HttpMethod !== 'OPTIONS',
-    );
+    const nonOptions = (
+      Object.values(methods) as { Properties: { HttpMethod: string; AuthorizationType: string } }[]
+    ).filter((m) => m.Properties.HttpMethod !== 'OPTIONS');
     expect(nonOptions).toHaveLength(3);
     for (const m of nonOptions) expect(m.Properties.AuthorizationType).toBe('AWS_IAM');
   });

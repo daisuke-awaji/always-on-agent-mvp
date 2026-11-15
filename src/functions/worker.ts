@@ -15,7 +15,14 @@ const MIN_REMAINING_TO_START_MS = RUN_TIMEOUT_MS + 30_000;
 /** Lambda のタイムアウト（15 分）より長くする。異常終了時はこの期限が来るまで他の worker は入らない */
 const LEASE_MS = Number(process.env.LEASE_MS ?? 16 * 60_000);
 
-let clients: { agentcore: BedrockAgentCoreClient; sqs: SQSClient; inbox: DynamoInboxRepository; messages: DynamoMessageRepository } | undefined;
+let clients:
+  | {
+      agentcore: BedrockAgentCoreClient;
+      sqs: SQSClient;
+      inbox: DynamoInboxRepository;
+      messages: DynamoMessageRepository;
+    }
+  | undefined;
 
 function getClients() {
   clients ??= {
@@ -30,7 +37,11 @@ function getClients() {
   return clients;
 }
 
-export async function invokeAgentRuntime(client: BedrockAgentCoreClient, runtimeArn: string, req: RunRequest): Promise<RunResult> {
+export async function invokeAgentRuntime(
+  client: BedrockAgentCoreClient,
+  runtimeArn: string,
+  req: RunRequest,
+): Promise<RunResult> {
   const res = await client.send(
     new InvokeAgentRuntimeCommand({
       agentRuntimeArn: runtimeArn,
@@ -94,7 +105,9 @@ export const handler = async (event: SQSEvent, context: Context): Promise<SQSBat
     newId: () => randomUUID(),
     newSessionId: () => `s-${randomUUID()}`,
     canStartRun: () => context.getRemainingTimeInMillis() > MIN_REMAINING_TO_START_MS,
-    log: (msg, data) => { console.log(JSON.stringify({ msg, ...data })); },
+    log: (msg, data) => {
+      console.log(JSON.stringify({ msg, ...data }));
+    },
   };
 
   for (const [userId, records] of byUser) {

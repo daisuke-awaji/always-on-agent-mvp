@@ -15,5 +15,9 @@ new AlwaysOnAgentStack(app, 'AlwaysOnAgentMvp', {
   modelId: ctxString('modelId') ?? 'jp.anthropic.claude-sonnet-4-6',
   notifyEmail: ctxString('notifyEmail'),
   // 未指定なら true（cdk.json の既定と同じ）。false にするには cdk.json か `-c destroyOnRemoval=false`
-  destroyOnRemoval: destroyOnRemoval === undefined || destroyOnRemoval === null || destroyOnRemoval === true || destroyOnRemoval === 'true',
+  destroyOnRemoval:
+    destroyOnRemoval === undefined ||
+    destroyOnRemoval === null ||
+    destroyOnRemoval === true ||
+    destroyOnRemoval === 'true',
 });

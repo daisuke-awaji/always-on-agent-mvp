@@ -1,5 +1,9 @@
 import { randomUUID } from 'node:crypto';
-import { ConditionalCheckFailedException, DynamoDBClient, TransactionCanceledException } from '@aws-sdk/client-dynamodb';
+import {
+  ConditionalCheckFailedException,
+  DynamoDBClient,
+  TransactionCanceledException,
+} from '@aws-sdk/client-dynamodb';
 import {
   DeleteCommand,
   DynamoDBDocumentClient,
@@ -87,7 +91,9 @@ export class DynamoInboxRepository implements InboxRepository {
     if (!input.sourceEventId) {
       await this.doc.send(
         new TransactWriteCommand({
-          TransactItems: [{ Put: { TableName: this.tableName, Item: eventItem, ConditionExpression: 'attribute_not_exists(pk)' } }],
+          TransactItems: [
+            { Put: { TableName: this.tableName, Item: eventItem, ConditionExpression: 'attribute_not_exists(pk)' } },
+          ],
         }),
       );
       return { event, duplicate: false };
@@ -111,14 +117,21 @@ export class DynamoInboxRepository implements InboxRepository {
       );
       return { event, duplicate: false };
     } catch (err) {
-      if (!(err instanceof TransactionCanceledException) || err.CancellationReasons?.[0]?.Code !== 'ConditionalCheckFailed') {
+      if (
+        !(err instanceof TransactionCanceledException) ||
+        err.CancellationReasons?.[0]?.Code !== 'ConditionalCheckFailed'
+      ) {
         throw err;
       }
       // 同じ送信元 ID が既にある → 既存イベントを返す（Webhook の再送など）
-      const dedup = await this.doc.send(new GetCommand({ TableName: this.tableName, Key: { pk, sk: dedupSk }, ConsistentRead: true }));
+      const dedup = await this.doc.send(
+        new GetCommand({ TableName: this.tableName, Key: { pk, sk: dedupSk }, ConsistentRead: true }),
+      );
       const existingSk = dedup.Item?.eventSk as string | undefined;
       if (existingSk) {
-        const existing = await this.doc.send(new GetCommand({ TableName: this.tableName, Key: { pk, sk: existingSk }, ConsistentRead: true }));
+        const existing = await this.doc.send(
+          new GetCommand({ TableName: this.tableName, Key: { pk, sk: existingSk }, ConsistentRead: true }),
+        );
         if (existing.Item) return { event: toEvent(existing.Item), duplicate: true };
       }
       return { event, duplicate: true };
@@ -131,7 +144,12 @@ export class DynamoInboxRepository implements InboxRepository {
       KeyConditionExpression: 'pk = :pk AND begins_with(sk, :evt)',
       FilterExpression: '#status IN (:pending, :processing)',
       ExpressionAttributeNames: { '#status': 'status' },
-      ExpressionAttributeValues: { ':pk': userPk(userId), ':evt': 'EVT#', ':pending': 'pending', ':processing': 'processing' },
+      ExpressionAttributeValues: {
+        ':pk': userPk(userId),
+        ':evt': 'EVT#',
+        ':pending': 'pending',
+        ':processing': 'processing',
+      },
       ConsistentRead: true,
       ScanIndexForward: true,
     });
@@ -159,7 +177,8 @@ export class DynamoInboxRepository implements InboxRepository {
           new UpdateCommand({
             TableName: this.tableName,
             Key: { pk: userPk(userId), sk: e.sk },
-            UpdateExpression: 'SET #status = :processing, attempts = if_not_exists(attempts, :zero) + :one, runId = :runId, updatedAt = :now',
+            UpdateExpression:
+              'SET #status = :processing, attempts = if_not_exists(attempts, :zero) + :one, runId = :runId, updatedAt = :now',
             ConditionExpression: '#status IN (:pending, :processing)',
             ExpressionAttributeNames: { '#status': 'status' },
             ExpressionAttributeValues: {
@@ -187,14 +206,24 @@ export class DynamoInboxRepository implements InboxRepository {
             UpdateExpression: 'SET #status = :done, updatedAt = :now, #ttl = :ttl REMOVE lastError',
             ConditionExpression: 'runId = :runId',
             ExpressionAttributeNames: { '#status': 'status', '#ttl': 'ttl' },
-            ExpressionAttributeValues: { ':done': 'done', ':now': nowIso, ':ttl': this.epochSec() + DONE_TTL_SEC, ':runId': runId },
+            ExpressionAttributeValues: {
+              ':done': 'done',
+              ':now': nowIso,
+              ':ttl': this.epochSec() + DONE_TTL_SEC,
+              ':runId': runId,
+            },
           }),
         ),
       ),
     );
   }
 
-  async markRetry(userId: string, events: InboxEvent[], error: string, maxAttempts: number): Promise<{ failed: string[] }> {
+  async markRetry(
+    userId: string,
+    events: InboxEvent[],
+    error: string,
+    maxAttempts: number,
+  ): Promise<{ failed: string[] }> {
     const nowIso = this.now().toISOString();
     const failed: string[] = [];
     await Promise.all(
@@ -212,7 +241,12 @@ export class DynamoInboxRepository implements InboxRepository {
               : 'SET #status = :pending, updatedAt = :now, lastError = :err',
             ExpressionAttributeNames: giveUp ? { '#status': 'status', '#ttl': 'ttl' } : { '#status': 'status' },
             ExpressionAttributeValues: giveUp
-              ? { ':failed': 'failed', ':now': nowIso, ':err': error.slice(0, 1000), ':ttl': this.epochSec() + DONE_TTL_SEC }
+              ? {
+                  ':failed': 'failed',
+                  ':now': nowIso,
+                  ':err': error.slice(0, 1000),
+                  ':ttl': this.epochSec() + DONE_TTL_SEC,
+                }
               : { ':pending': 'pending', ':now': nowIso, ':err': error.slice(0, 1000) },
           }),
         );
