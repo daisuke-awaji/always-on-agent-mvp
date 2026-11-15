@@ -1,0 +1,2 @@
+# affectUI を shadcn CLI で取り込んだファイル（手で直さない）。ルートの .prettierignore と同じ
+src/components/ui/

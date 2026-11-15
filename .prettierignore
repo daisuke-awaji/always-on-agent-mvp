@@ -8,3 +8,5 @@ package-lock.json
 web/dist/
 # `msw init` が生成するファイル
 web/public/mockServiceWorker.js
+# affectUI を shadcn CLI で取り込んだファイル（手で直さない）
+web/src/components/ui/

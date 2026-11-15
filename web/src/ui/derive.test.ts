@@ -65,10 +65,10 @@ describe('buildRuns', () => {
     const b = ev({ runId: 'r1', type: 'webhook', source: 'github', payload: {} });
     const c = ev({ runId: 'r2', type: 'system', source: 'scheduler', payload: { kind: 'daily_check' } });
     const runs = buildRuns([a, b, c], [msg({ runId: 'r1', sessionId: 's-1' })]);
-    const byId = Object.fromEntries(runs.map((r) => [r.runId, r]));
-    expect(byId.r1?.outcome).toBe('sent');
-    expect(byId.r1?.events).toHaveLength(2);
-    expect(byId.r2?.outcome).toBe('silent');
+    const byId = new Map(runs.map((r) => [r.runId, r]));
+    expect(byId.get('r1')?.outcome).toBe('sent');
+    expect(byId.get('r1')?.events).toHaveLength(2);
+    expect(byId.get('r2')?.outcome).toBe('silent');
   });
 
   it('まだ run に入っていないイベントは待ち、失敗して戻ったものは再試行待ち', () => {
