@@ -7,7 +7,8 @@ import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
 export default defineConfig(
-  globalIgnores(['node_modules/', 'dist/', 'cdk.out/', '.local-state/', 'coverage/']),
+  // web/ は自分の package.json と eslint.config.mjs を持つ（React 用の設定）
+  globalIgnores(['node_modules/', 'dist/', 'cdk.out/', '.local-state/', 'coverage/', 'web/']),
 
   eslint.configs.recommended,
   tseslint.configs.strictTypeChecked,

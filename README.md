@@ -84,6 +84,7 @@ scripts/aoa.mjs                  Client for the deployed API (SigV4)
 scripts/local-scenario.mjs       Check behavior locally against the real model
 test/                            vitest (unit, integration, CDK assertions)
 docs/architecture.drawio         Architecture diagram source (exported to docs/architecture.png)
+web/                             Web UI mock (React + Mock Service Worker, no backend). See web/README.md
 ```
 
 ## Requirements

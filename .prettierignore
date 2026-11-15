@@ -5,3 +5,6 @@ cdk.out/
 coverage/
 package-lock.json
 *.md
+web/dist/
+# `msw init` が生成するファイル
+web/public/mockServiceWorker.js
