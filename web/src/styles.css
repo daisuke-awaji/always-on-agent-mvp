@@ -11,14 +11,8 @@
   --accent: rgb(0 0 0 / 88%);
   --selected: rgb(0 0 0 / 5%);
   --focus: rgb(0 96 226 / 70%);
-  --info: #006dcb;
-  --done: #007d2e;
   --failed: #d72400;
-  --failed-soft: #f52b0012;
-  --high: #b25e00;
-  --high-soft: #ff9c001f;
   --radius: 10px;
-  --radius-sm: 6px;
   --shadow: 0 0 0 0.5px rgb(0 0 0 / 6%), 0 1px 1px -1px rgb(0 0 0 / 10%), 0 1px 2px 0 rgb(0 0 0 / 5%);
   --font: 'Inter', 'Hiragino Sans', 'Noto Sans JP', 'Yu Gothic UI', system-ui, -apple-system, sans-serif;
   --mono: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Consolas, monospace;
@@ -75,22 +69,6 @@ textarea {
   font: inherit;
   color: inherit;
 }
-.muted {
-  color: var(--text-3);
-}
-.small {
-  font-size: 12px;
-}
-.mono {
-  font-family: var(--mono);
-  font-size: 12px;
-}
-.pad {
-  padding: 16px;
-}
-.nowrap {
-  white-space: nowrap;
-}
 .ellipsis {
   min-width: 0;
   overflow: hidden;
@@ -100,7 +78,7 @@ textarea {
 /* ---------- アプリの枠 ---------- */
 .app {
   display: grid;
-  grid-template-rows: auto auto 1fr auto;
+  grid-template-rows: auto auto 1fr;
   /* iOS でキーボードが出たときは useVisualViewportHeight が --app-h を見えている高さにする */
   height: var(--app-h, 100dvh);
 }
@@ -108,11 +86,7 @@ textarea {
   /* エラー表示がないときも 3 行目（1fr）に置く */
   grid-row: 3;
   min-height: 0;
-  overflow: auto;
-  overscroll-behavior: contain;
-}
-.route-chat .main,
-.route-inbox .main {
+  /* 一覧とスレッドがそれぞれスクロールする */
   overflow: hidden;
 }
 .topbar {
@@ -141,42 +115,6 @@ textarea {
   border: 1px solid var(--line);
   border-radius: 999px;
   padding: 0 8px;
-}
-.tabs {
-  display: flex;
-  gap: 4px;
-  height: 100%;
-}
-.tab {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 0 12px;
-  text-decoration: none;
-  color: var(--text-2);
-  border-bottom: 2px solid transparent;
-  white-space: nowrap;
-}
-.tab-active {
-  color: var(--text);
-  font-weight: 700;
-  border-bottom-color: var(--accent);
-}
-.tab-letter {
-  display: inline-grid;
-  place-items: center;
-  width: 20px;
-  height: 20px;
-  border-radius: var(--radius-sm);
-  font-size: 11px;
-  font-weight: 600;
-  background: var(--surface);
-  box-shadow: var(--shadow);
-}
-.tab-active .tab-letter {
-  background: var(--accent);
-  box-shadow: none;
-  color: #fff;
 }
 .topbar-right {
   margin-left: auto;
@@ -288,10 +226,6 @@ textarea {
   gap: 6px;
   flex: none;
 }
-/* スマホだけに出す下のバー */
-.bottom-nav {
-  display: none;
-}
 /* 見た目には出さず、読み上げにだけ残す */
 .sr-only {
   position: absolute;
@@ -304,6 +238,8 @@ textarea {
 }
 .topbar-title {
   display: none;
+  align-items: center;
+  gap: 8px;
 }
 /* ---------- モック設定 ---------- */
 .mock-section {
@@ -320,8 +256,7 @@ textarea {
   gap: 8px;
   min-height: 28px;
 }
-.mock-endpoint,
-.endpoint {
+.mock-endpoint {
   font-family: var(--mono);
   font-size: 12px;
   color: var(--text-3);
@@ -332,78 +267,7 @@ textarea {
   display: grid;
   gap: 8px;
 }
-/* ---------- 概要 ---------- */
-.overview {
-  max-width: 1080px;
-  margin: 0 auto;
-  padding: 32px 20px 48px;
-  display: grid;
-  gap: 24px;
-}
-.overview-hero {
-  display: grid;
-  gap: 8px;
-}
-.overview-title {
-  font-size: 22px;
-}
-.overview-hero p {
-  max-width: 760px;
-  color: var(--text-2);
-}
-.pattern-cards {
-  list-style: none;
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
-}
-.pattern-letter {
-  display: grid;
-  place-items: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  background: var(--surface-2);
-  color: var(--text);
-  font-weight: 600;
-  font-size: 14px;
-}
-.pattern-card-body {
-  flex: 1;
-  display: grid;
-  gap: 6px;
-  align-content: start;
-}
-.pattern-card-body h3 {
-  margin-top: 6px;
-  color: var(--text-3);
-  font-weight: 500;
-}
-.pattern-card-body ul {
-  padding-left: 18px;
-  display: grid;
-  gap: 2px;
-  color: var(--text-2);
-}
-.pattern-open {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  color: var(--text-2);
-  font-weight: 500;
-}
-.overview-notes {
-  background: var(--surface);
-  box-shadow: var(--shadow);
-  border-radius: var(--radius);
-  padding: 18px 20px;
-}
-.overview-notes ol {
-  padding-left: 20px;
-  margin-top: 8px;
-  color: var(--text-2);
-}
-/* ---------- A: 会話 ---------- */
+/* ---------- 会話 ---------- */
 .chat {
   display: grid;
   grid-template-columns: 300px 1fr;
@@ -432,6 +296,8 @@ textarea {
 }
 .chat-list-item {
   display: grid;
+  /* 列の幅を一覧の幅までにする（auto だと、1 行に詰めた長い題名の幅まで広がって右端の時刻やバッジがはみ出す） */
+  grid-template-columns: minmax(0, 1fr);
   gap: 2px;
   width: 100%;
   text-align: left;
@@ -444,11 +310,16 @@ textarea {
 .chat-list-item.active {
   background: var(--selected);
 }
+/* 選んでいる行の背景の上でも読める濃さにする */
+.chat-list-item.active .chat-list-time {
+  color: var(--text-2);
+}
 .chat-list-title {
   display: flex;
   align-items: baseline;
   gap: 8px;
-  font-weight: 600;
+  /* 既読は細め、未読（.unread）は太く。太さの差で未読がひと目でわかるようにする */
+  font-weight: 500;
   min-width: 0;
 }
 .chat-list-time {
@@ -468,6 +339,18 @@ textarea {
 }
 .chat-list-preview > .ellipsis {
   flex: 1;
+}
+.chat-list-title-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+/* 未読がある会話: 題名と最後の一言を濃く太くする（件数は右下のバッジ） */
+.chat-list-item.unread .chat-list-title {
+  font-weight: 700;
+}
+.chat-list-item.unread .chat-list-preview {
+  color: var(--text);
 }
 .chat-thread {
   display: grid;
@@ -591,407 +474,15 @@ textarea {
   font-size: 11px;
   color: var(--text-3);
 }
-/* ---------- B: 通知箱 ---------- */
-.inbox {
-  display: grid;
-  grid-template-columns: minmax(320px, 420px) 1fr;
-  height: 100%;
-}
-.inbox-list {
-  border-right: 1px solid var(--line);
-  background: var(--surface);
-  overflow: auto;
-  overscroll-behavior: contain;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-}
-.inbox-head {
-  padding: 14px 14px 10px;
-  display: grid;
-  gap: 8px;
-  position: sticky;
-  top: 0;
-  background: var(--surface);
-  z-index: 1;
-  border-bottom: 1px solid var(--line);
-}
-.inbox-note {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 14px;
-  font-size: 12px;
-  color: var(--text-2);
-  border-bottom: 1px solid var(--line);
-}
-.inbox-items {
-  list-style: none;
-}
-.inbox-day {
-  padding: 12px 14px 4px;
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--text-2);
-}
-.inbox-item {
-  display: flex;
-  gap: 10px;
-  align-items: flex-start;
-  width: 100%;
-  text-align: left;
-  border: 0;
-  border-left: 3px solid transparent;
-  background: transparent;
-  padding: 10px 14px 10px 11px;
-  cursor: pointer;
-}
-.inbox-item.active {
-  background: var(--selected);
-  border-left-color: var(--accent);
-}
-.unread-mark {
-  flex: none;
-  width: 6px;
-  height: 6px;
-  margin-top: 8px;
-  border-radius: 50%;
-}
-.inbox-item.unread .unread-mark {
-  background: var(--text);
-}
-.inbox-item-body {
-  display: grid;
-  gap: 2px;
-  min-width: 0;
-}
-.inbox-item.unread .inbox-item-title {
-  font-weight: 700;
-}
-.inbox-item.read .inbox-item-title {
-  color: var(--text-2);
-}
-.inbox-item-meta {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-  font-size: 11px;
-  color: var(--text-3);
-}
-.silent-box {
-  margin-top: auto;
-  border-top: 1px solid var(--line);
-}
-.silent-toggle {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  border: 0;
-  background: var(--surface-2);
-  padding: 10px 14px;
-  cursor: pointer;
-  font-size: 13px;
-  color: var(--text-2);
-}
-.chevron {
-  color: var(--text-3);
-  transition: transform 0.15s;
-}
-[aria-expanded='true'] > .chevron {
-  transform: rotate(180deg);
-}
-.silent-list {
-  list-style: none;
-  padding: 4px 14px 12px;
-  background: var(--surface-2);
-}
-.silent-list li {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  gap: 8px;
-  align-items: center;
-  padding: 4px 0;
-  font-size: 12px;
-  color: var(--text-2);
-}
-.inbox-detail {
-  display: grid;
-  grid-template-rows: auto 1fr auto;
-  min-height: 0;
-}
-.detail-scroll {
-  overflow: auto;
-  overscroll-behavior: contain;
-  min-height: 0;
-}
-.detail {
-  max-width: 720px;
-  margin: 0 auto;
-  padding: 24px;
-  display: grid;
-  gap: 18px;
-}
-.detail-text {
-  font-size: 16px;
-  line-height: 1.75;
-  white-space: pre-wrap;
-  background: var(--surface);
-  box-shadow: var(--shadow);
-  border-radius: var(--radius);
-  padding: 18px 20px;
-}
-.detail-why,
-.detail-followups {
-  display: grid;
-  gap: 8px;
-}
-.detail-why ul,
-.detail-followups ul {
-  list-style: none;
-  display: grid;
-  gap: 6px;
-}
-.detail-why li {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  gap: 10px;
-  align-items: center;
-  background: var(--surface);
-  box-shadow: var(--shadow);
-  border-radius: var(--radius);
-  padding: 8px 12px;
-}
-.why-main {
-  display: grid;
-  min-width: 0;
-}
-.why-main .muted {
-  font-size: 12px;
-}
-.detail-followups li {
-  font-size: 13px;
-  padding: 6px 10px;
-  border-left: 2px solid var(--line-strong);
-}
-.detail-followups .fu-agent {
-  border-left-color: var(--accent);
-}
-/* ---------- C: 運用 ---------- */
-.console {
-  padding: 16px 20px 32px;
-  display: grid;
-  gap: 16px;
-  max-width: 1400px;
-  margin: 0 auto;
-}
-.metrics {
-  display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: 10px;
-}
-.metric {
-  background: var(--surface);
-  box-shadow: var(--shadow);
-  border-radius: var(--radius);
-  padding: 10px 14px;
-  display: grid;
-}
-.metric-label {
-  font-size: 12px;
-  color: var(--text-2);
-}
-.metric-value {
-  font-size: 22px;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-  font-variant-numeric: tabular-nums;
-}
-.metric-sub {
-  font-size: 11px;
-  color: var(--text-3);
-}
-.console-body {
-  display: grid;
-  grid-template-columns: 1fr 340px;
-  gap: 16px;
-  align-items: start;
-}
-.runs {
-  background: var(--surface);
-  box-shadow: var(--shadow);
-  border-radius: var(--radius);
-  min-width: 0;
-  overflow: hidden;
-}
-.runs-filter {
-  width: 180px;
-}
-.runs-head {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 14px;
-  border-bottom: 1px solid var(--line);
-}
-.table-wrap {
-  overflow-x: auto;
-}
-.runs-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 13px;
-}
-.runs-table th {
-  white-space: nowrap;
-  text-align: left;
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--text-3);
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--line);
-  background: var(--surface-2);
-}
-.runs-table td {
-  padding: 8px 12px;
-  border-bottom: 1px solid var(--line);
-  vertical-align: middle;
-}
-.runs-table .num {
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-}
-.run-row {
-  cursor: pointer;
-}
-.run-row.open {
-  background: var(--selected);
-}
-.run-row td:first-child {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.run-events {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  min-width: 220px;
-  max-width: 460px;
-}
-.run-detail td {
-  background: var(--surface-2);
-  padding: 12px 16px 16px;
-}
-.kv {
-  display: grid;
-  grid-template-columns: max-content 1fr;
-  gap: 2px 12px;
-  margin: 0 0 10px;
-  font-size: 12px;
-}
-.kv dt {
-  color: var(--text-3);
-}
-.kv dd {
-  margin: 0;
-  overflow-wrap: anywhere;
-}
-.event-detail {
-  display: grid;
-  gap: 8px;
-  background: var(--surface);
-  box-shadow: var(--shadow);
-  border-radius: var(--radius);
-  padding: 10px 12px;
-  margin-top: 8px;
-}
-.send-calls {
-  margin-top: 8px;
-}
-.event-detail-head {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: center;
-  color: var(--text-2);
-}
-.event-error {
-  color: var(--failed);
-  font-family: var(--mono);
-  font-size: 12px;
-}
-.send-form {
-  background: var(--surface);
-  box-shadow: var(--shadow);
-  border-radius: var(--radius);
-  padding: 14px;
-  display: grid;
-  gap: 10px;
-  position: sticky;
-  top: 16px;
-}
-.send-form-toggle {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  border: 0;
-  background: transparent;
-  padding: 0;
-  text-align: left;
-  cursor: pointer;
-}
-.send-form-body {
-  display: grid;
-  gap: 10px;
-}
-.send-form form {
-  display: grid;
-  gap: 14px;
-}
-.presets {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-/* affectUI の Text Field / Text Area の inputClassName に渡す（入力そのものの書体だけ） */
-.mono-input {
-  font-family: var(--mono);
-}
-.send-result {
-  display: grid;
-  gap: 6px;
-  justify-items: start;
-}
-.send-result > figure {
-  justify-self: stretch;
-}
 /* ---------- 操作の手ざわり ---------- */
 /* hover の色はマウスなどで指せるときだけ（タッチで押したあとに色が残らないように） */
 @media (hover: hover) {
-  .tab:hover {
-    color: var(--text);
-  }
   .chat-list-item:hover {
-    background: var(--surface-2);
-  }
-  .inbox-item:hover {
-    background: var(--surface-2);
-  }
-  .run-row:hover {
     background: var(--surface-2);
   }
 }
 /* タッチでは押した瞬間に色を変えて、押せたことを返す */
-.chat-list-item:active,
-.inbox-item:active,
-.run-row:active,
-.silent-toggle:active,
-.bottom-nav-item:active {
+.chat-list-item:active {
   background: var(--surface-2);
 }
 button,
@@ -1024,25 +515,10 @@ summary {
     font-size: 16px;
   }
 }
-/* ---------- 中くらいの画面 ---------- */
-@media (max-width: 900px) {
-  .pattern-cards {
-    grid-template-columns: 1fr;
-  }
-  .metrics {
-    grid-template-columns: repeat(3, 1fr);
-  }
-  .console-body {
-    grid-template-columns: 1fr;
-  }
-  .send-form {
-    position: static;
-  }
-}
 /* ---------- スマホ ----------
  * 方針
- * - パターンの切り替えは親指の届く下のバーに。上のバーはロゴ・画面名・モック設定だけ
- * - 一覧の 1 件を開いたら、その 1 件を画面いっぱいに（上下のバーを隠す）。戻るは左上と端末の「戻る」
+ * - 上のバーはロゴ・画面名（未読数）・モック設定だけ
+ * - 会話を開いたら、その会話を画面いっぱいに（上のバーを隠す）。戻るは左上と端末の「戻る」
  * - 押せるところは 44px 以上。入力欄は 16px（iOS がフォーカス時に拡大しないように）
  * - ノッチやホームバーに重ならないよう safe-area を空ける
  */
@@ -1056,13 +532,20 @@ summary {
     min-height: calc(52px + env(safe-area-inset-top));
     padding: env(safe-area-inset-top) max(8px, env(safe-area-inset-right)) 0 max(12px, env(safe-area-inset-left));
   }
-  .tabs,
   .brand-name,
   .brand-sub,
-  .user-chip,
+  .user-chip {
+    display: none;
+  }
+  /* モック設定は丸いボタンだけにする。文字は読み上げ（ボタンの名前）に残す */
   .mock-label,
   .mock-scenario {
-    display: none;
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
   }
   .brand {
     width: 44px;
@@ -1071,49 +554,12 @@ summary {
     margin-left: -8px;
   }
   .topbar-title {
-    display: block;
+    display: flex;
     font-size: 17px;
     font-weight: 700;
   }
-  .bottom-nav {
-    grid-row: 4;
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    background: var(--surface);
-    border-top: 1px solid var(--line);
-    padding: 0 env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
-  }
-  .bottom-nav-item {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 2px;
-    min-height: 56px;
-    font-size: 11px;
-    color: var(--text-3);
-    text-decoration: none;
-  }
-  .bottom-nav-item.active {
-    color: var(--text);
-    font-weight: 700;
-  }
-  .bottom-nav-icon {
-    position: relative;
-    display: grid;
-  }
-  .count-on-icon {
-    position: absolute;
-    top: -6px;
-    left: 14px;
-    display: flex;
-    border-radius: 999px;
-    background: var(--surface);
-    padding: 1px;
-  }
-  /* 1 件を開いているときは、その 1 件だけを画面いっぱいに */
-  .app.has-sub .topbar,
-  .app.has-sub .bottom-nav {
+  /* 会話を開いているときは、その会話だけを画面いっぱいに */
+  .app.has-sub .topbar {
     display: none;
   }
   .split {
@@ -1145,23 +591,22 @@ summary {
     padding: 5px 0;
   }
   .chat-list-preview,
-  .inbox-item-meta,
   .bubble-time,
   .day-divider,
   .event-card-meta,
   .event-card-detail {
     font-size: 12px;
   }
-  /* A: 会話 */
   .chat-list-head {
     padding: 8px 12px;
   }
-  .chat-list-head h2,
-  .inbox-head h2 {
+  /* 画面名と未読数は上のバーに出す */
+  .chat-list-head h2 {
     display: none;
   }
   .chat-list ul {
-    padding: 0 0 12px;
+    /* 下のバーがないので、ホームバーの分だけ空ける */
+    padding: 0 0 calc(12px + env(safe-area-inset-bottom));
   }
   .chat-list-item {
     min-height: 64px;
@@ -1190,148 +635,8 @@ summary {
   .event-card-meta {
     grid-column: 2;
   }
-  /* B: 通知箱 */
-  .inbox-head {
-    padding: 8px 12px;
-  }
-  .inbox-item {
-    min-height: 64px;
-    padding: 12px 16px 12px 13px;
-    border-bottom: 1px solid var(--line);
-  }
-  .inbox-item.active {
-    background: transparent;
-    border-left-color: transparent;
-  }
-  .inbox-item-title {
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
-    overflow: hidden;
-  }
-  .inbox-day {
-    padding: 14px 16px 4px;
-  }
-  .silent-toggle {
-    min-height: 48px;
-    padding: 0 16px;
-    font-size: 14px;
-  }
-  .silent-list {
-    padding: 4px 16px 12px;
-  }
-  .silent-list li {
-    font-size: 13px;
-    padding: 6px 0;
-  }
-  .detail {
-    padding: 16px;
-    gap: 16px;
-  }
-  .detail-text {
-    padding: 14px 16px;
-  }
-  /* C: 運用。表は 1 run = 1 枚のカードにする */
-  .console {
-    padding: 12px;
-    gap: 12px;
-  }
-  .metrics {
-    gap: 8px;
-  }
-  .metric {
-    padding: 8px 10px;
-    align-content: start;
-  }
-  .metric-label {
-    font-size: 11px;
-    line-height: 1.35;
-  }
-  .metric-value {
-    font-size: 18px;
-  }
-  .runs-head {
-    padding: 10px 12px;
-  }
-  .runs-table,
-  .runs-table tbody {
-    display: block;
-  }
-  .runs-table thead {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-  }
-  .runs-table tr.run-row {
-    display: grid;
-    grid-template-columns: max-content 1fr auto;
-    grid-template-areas:
-      'time time outcome'
-      'events events events'
-      'attempts sends sends';
-    gap: 4px 8px;
-    padding: 12px;
-    border-bottom: 1px solid var(--line);
-  }
-  .runs-table tr.run-row td {
-    padding: 0;
-    border: 0;
-  }
-  .run-row td:nth-child(1) {
-    grid-area: time;
-  }
-  .run-row td:nth-child(2) {
-    grid-area: outcome;
-  }
-  .run-row td:nth-child(3) {
-    grid-area: events;
-  }
-  .run-row td:nth-child(4) {
-    grid-area: attempts;
-  }
-  .run-row td.num {
-    text-align: left;
-    font-size: 12px;
-    color: var(--text-3);
-  }
-  .run-row td.num::before {
-    content: attr(data-label) ' ';
-  }
-  .run-row td:nth-child(5) {
-    grid-area: sends;
-    margin-left: 12px;
-  }
-  .run-events {
-    min-width: 0;
-    max-width: none;
-  }
-  .runs-table tr.run-detail,
-  .runs-table tr.run-detail td {
-    display: block;
-  }
-  .run-detail td {
-    padding: 12px;
-  }
-  .send-form {
-    padding: 0;
-    gap: 0;
-  }
-  .send-form-toggle {
-    min-height: 52px;
-    padding: 0 14px;
-  }
-  .send-form-body {
-    padding: 0 14px 14px;
-  }
-  /* 概要 */
-  .overview {
-    padding: 20px 16px 32px;
-    gap: 16px;
-  }
   .toast {
-    bottom: calc(68px + env(safe-area-inset-bottom));
+    bottom: calc(24px + env(safe-area-inset-bottom));
   }
   .app.has-sub .toast {
     bottom: calc(76px + env(safe-area-inset-bottom));
@@ -1354,8 +659,7 @@ summary {
   .composer textarea {
     max-height: 72px;
   }
-  .chat-list,
-  .inbox-list {
+  .chat-list {
     padding-left: env(safe-area-inset-left);
   }
 }

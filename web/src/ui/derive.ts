@@ -2,7 +2,7 @@ import type { EventStatus, InboxEvent, StoredMessage } from '../api/schema';
 
 /**
  * API が返すのは「イベント」と「送信済みメッセージ」の 2 つだけ。
- * 画面で使う「会話（session）」と「run」は、ここで runId と sessionId からつなぎ直す。
+ * 画面で使う「会話（session）」は、ここで runId と sessionId からつなぎ直す。
  *
  *   ・返信イベントは sessionId を持つ
  *   ・新しい会話のイベントは sessionId を持たない。worker が採番した session は、
@@ -21,17 +21,6 @@ export interface Session {
   busy: boolean;
   hasHigh: boolean;
   failed: number;
-}
-
-export type RunOutcome = 'running' | 'queued' | 'sent' | 'silent' | 'failed' | 'retrying';
-
-export interface Run {
-  runId: string;
-  events: InboxEvent[];
-  messages: StoredMessage[];
-  sessionId?: string;
-  startedAt: string;
-  outcome: RunOutcome;
 }
 
 export function sessionIdOf(e: InboxEvent, messagesByRun: Map<string, StoredMessage[]>): string | undefined {
@@ -78,50 +67,17 @@ export function buildSessions(events: InboxEvent[], messages: StoredMessage[]): 
   return sessions.sort((a, b) => b.lastAt.localeCompare(a.lastAt));
 }
 
-/** run の一覧（新しい順）。まだ run に入っていないイベントは runId なしの「待ち」として 1 件ずつ並べる */
-export function buildRuns(events: InboxEvent[], messages: StoredMessage[]): Run[] {
-  const byRun = indexByRun(messages);
-  const groups = new Map<string, InboxEvent[]>();
-  const runs: Run[] = [];
-  for (const e of events) {
-    if (!e.runId || e.status === 'pending') {
-      runs.push({
-        runId: e.runId ? `${e.runId}:retry:${e.eventId}` : `queued:${e.eventId}`,
-        events: [e],
-        messages: [],
-        sessionId: e.sessionId,
-        startedAt: e.receivedAt,
-        outcome: e.runId ? 'retrying' : 'queued',
-      });
-      continue;
-    }
-    groups.set(e.runId, [...(groups.get(e.runId) ?? []), e]);
-  }
-  for (const [runId, evs] of groups) {
-    const msgs = byRun.get(runId) ?? [];
-    evs.sort((a, b) => a.sk.localeCompare(b.sk));
-    runs.push({
-      runId,
-      events: evs,
-      messages: msgs,
-      sessionId: msgs[0]?.sessionId ?? evs[0]?.sessionId,
-      startedAt: evs[0]?.receivedAt ?? '',
-      outcome: outcomeOf(evs, msgs),
-    });
-  }
-  return runs.sort((a, b) => b.startedAt.localeCompare(a.startedAt));
+/**
+ * 会話の中で、まだ読んでいないエージェントのメッセージ（messageId）。既読は readState.ts が持つ。
+ * 数えるのはエージェントからのメッセージだけ。自分の発言や、届いたイベントは数えない。
+ */
+export function unreadIds(s: Session, read: ReadonlySet<string>): string[] {
+  return s.items.flatMap((i) => (i.kind === 'message' && !read.has(i.message.messageId) ? [i.message.messageId] : []));
 }
 
-function outcomeOf(evs: InboxEvent[], msgs: StoredMessage[]): RunOutcome {
-  if (evs.some((e) => e.status === 'processing')) return 'running';
-  if (evs.some((e) => e.status === 'failed')) return 'failed';
-  return msgs.length > 0 ? 'sent' : 'silent';
-}
-
-export function countByStatus(events: InboxEvent[]): Record<EventStatus, number> {
-  const c: Record<EventStatus, number> = { pending: 0, processing: 0, done: 0, failed: 0 };
-  for (const e of events) c[e.status] += 1;
-  return c;
+/** すべての会話の未読数の合計 */
+export function totalUnread(sessions: Session[], read: ReadonlySet<string>): number {
+  return sessions.reduce((n, s) => n + unreadIds(s, read).length, 0);
 }
 
 // ---- 表示用の文言 ----
@@ -174,15 +130,6 @@ export const STATUS_LABEL: Record<EventStatus, string> = {
   pending: '受付済み',
   processing: '処理中',
   done: '完了',
-  failed: '失敗',
-};
-
-export const OUTCOME_LABEL: Record<RunOutcome, string> = {
-  queued: '待ち',
-  retrying: '再試行待ち',
-  running: '実行中',
-  sent: '送信あり',
-  silent: '静かに完了',
   failed: '失敗',
 };
 

@@ -11,8 +11,12 @@ import {
   HighBadge,
   ListSkeleton,
   PaneHeader,
+  PHONE,
   SourceAvatar,
   StatusBadge,
+  UnreadCount,
+  useMediaQuery,
+  usePageVisible,
 } from '../ui/components';
 import {
   buildSessions,
@@ -25,14 +29,17 @@ import {
   sessionIdOf,
   SOURCE_LABEL,
   summarize,
+  totalUnread,
+  unreadIds,
   type Session,
   type TimelineItem,
 } from '../ui/derive';
+import { markRead, useRead } from '../ui/readState';
 import type { Navigation } from '../ui/route';
 import { useNow, type AgentData } from '../ui/useAgentData';
 
 /**
- * パターン A: 会話。session を 1 つのスレッドとして見せる。
+ * 会話。session を 1 つのスレッドとして見せる。
  * 開いている会話は URL で持つ（#/chat/<sessionId>）。スマホでは一覧と会話を切り替え、端末の「戻る」で一覧に戻れる。
  * 新しい会話の最初のメッセージは、エージェントが返事をするまで session がわからないので、
  * 「新しい会話」（#/chat/e:<eventId>）として仮に並べ、返事が来たら本当の session として見せる。
@@ -82,15 +89,29 @@ export function ChatPattern({
   const draftEvent = current.kind === 'draft' ? drafts.find((e) => e.eventId === current.eventId) : undefined;
   const missing = current.kind === 'session' && !session && data.loaded;
 
+  // 既読にするのは、会話が実際に画面に出ているときだけ。
+  // スマホで一覧を見ているとき（会話は隠れている）や、ブラウザのタブが裏にあるときは既読にしない
+  const read = useRead();
+  const phone = useMediaQuery(PHONE);
+  const pageVisible = usePageVisible();
+  const shown = session && pageVisible && (!phone || sub !== undefined) ? session : undefined;
+  useEffect(() => {
+    if (shown) markRead(unreadIds(shown, read));
+  }, [shown, read]);
+  const unread = totalUnread(sessions, read);
+
   const open = (next: string) => {
-    nav.open({ route: 'chat', sub: next });
+    nav.open({ sub: next });
   };
 
   return (
     <div className="chat split">
       <aside className="chat-list split-list" aria-label="会話">
         <div className="chat-list-head">
-          <h2>会話</h2>
+          <h2 className="chat-list-title-head">
+            会話
+            {unread > 0 && <UnreadCount n={unread} />}
+          </h2>
           <Button
             size="sm"
             icon={<SquarePen size={14} strokeWidth={1.9} />}
@@ -128,6 +149,7 @@ export function ChatPattern({
               <SessionListItem
                 s={s}
                 active={current.kind === 'session' && current.id === s.sessionId}
+                unread={unreadIds(s, read).length}
                 now={now}
                 onClick={() => {
                   open(s.sessionId);
@@ -148,11 +170,12 @@ export function ChatPattern({
           title={session ? session.title : draftEvent ? summarize(draftEvent) : missing ? '会話' : '新しい会話'}
           sub={session ? `最終更新 ${relativeTime(session.lastAt, now)}` : undefined}
           onBack={() => {
-            nav.backToList('chat');
+            nav.backToList();
           }}
           backLabel="会話の一覧に戻る"
         />
-        <div className="chat-scroll">
+        {/* キーボードでもスクロールできるように、フォーカスを受ける */}
+        <div className="chat-scroll" tabIndex={0} role="region" aria-label="メッセージ">
           {session && <Thread items={session.items} busy={session.busy} />}
           {draftEvent && (
             <Thread
@@ -175,7 +198,7 @@ export function ChatPattern({
             sessionId={session?.sessionId}
             placeholder={session ? 'この会話に返信する' : '新しい会話を始める'}
             onSent={(res) => {
-              if (!session) nav.replace({ route: 'chat', sub: DRAFT_PREFIX + res.eventId });
+              if (!session) nav.replace({ sub: DRAFT_PREFIX + res.eventId });
               data.refresh();
             }}
           />
@@ -188,11 +211,13 @@ export function ChatPattern({
 function SessionListItem({
   s,
   active,
+  unread,
   now,
   onClick,
 }: {
   s: Session;
   active: boolean;
+  unread: number;
   now: number;
   onClick: () => void;
 }) {
@@ -204,7 +229,11 @@ function SessionListItem({
         ? `${SOURCE_LABEL[last.event.source] ?? last.event.source}: ${summarize(last.event)}`
         : '';
   return (
-    <button type="button" className={`chat-list-item ${active ? 'active' : ''}`} onClick={onClick}>
+    <button
+      type="button"
+      className={`chat-list-item ${active ? 'active' : ''} ${unread > 0 ? 'unread' : ''}`}
+      onClick={onClick}
+    >
       <span className="chat-list-title">
         <span className="ellipsis">{s.title}</span>
         <span className="chat-list-time">{relativeTime(s.lastAt, now)}</span>
@@ -219,6 +248,7 @@ function SessionListItem({
         ) : s.hasHigh ? (
           <HighBadge />
         ) : null}
+        {unread > 0 && <UnreadCount n={unread} />}
       </span>
     </button>
   );

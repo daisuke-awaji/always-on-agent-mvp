@@ -1,8 +1,8 @@
 import { useSyncExternalStore } from 'react';
 
 /**
- * 連絡の既読。API にはない、この画面だけの状態（localStorage）。
- * 通知箱と下のタブバー（未読数）で同じ値を使うので、小さなストアにしてある。
+ * エージェントのメッセージの既読。API にはない、この画面だけの状態（localStorage に messageId を持つ）。
+ * 会話の一覧（会話ごとの未読数）と上のバー・ブラウザのタブ名（全体の未読数）で同じ値を使うので、小さなストアにしてある。
  */
 const KEY = 'aoa-ui:read-messages';
 const listeners = new Set<() => void>();
@@ -16,9 +16,11 @@ function load(): ReadonlySet<string> {
   }
 }
 
-export function markRead(messageId: string): void {
-  if (read.has(messageId)) return;
-  read = new Set(read).add(messageId);
+/** まとめて既読にする。会話を開いたときに、その会話のメッセージをまとめて渡す */
+export function markRead(messageIds: readonly string[]): void {
+  const fresh = messageIds.filter((id) => !read.has(id));
+  if (fresh.length === 0) return;
+  read = new Set([...read, ...fresh]);
   try {
     localStorage.setItem(KEY, JSON.stringify([...read]));
   } catch {
