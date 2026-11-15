@@ -1,0 +1,9 @@
+{
+  "app": "node scripts/build-agent.mjs && npx tsx bin/app.ts",
+  "watch": { "include": ["bin", "lib", "src"] },
+  "context": {
+    "modelId": "jp.anthropic.claude-sonnet-4-6",
+    "notifyEmail": "",
+    "destroyOnRemoval": true
+  }
+}
