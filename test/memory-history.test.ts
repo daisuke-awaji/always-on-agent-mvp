@@ -66,7 +66,7 @@ describe('history', () => {
   it('最後が user ならそこにまとめる（user / assistant の交互を保つ）', () => {
     const merged = appendUserContent([user('a'), toolUse('t1'), toolResult('t1')], [{ text: 'new' }]);
     expect(merged).toHaveLength(3);
-    expect(merged[2]!.content).toHaveLength(2);
+    expect(merged[2].content).toHaveLength(2);
     expect(appendUserContent([user('a'), asst('b')], [{ text: 'c' }])).toHaveLength(3);
   });
 
@@ -81,7 +81,7 @@ describe('history', () => {
   it('cachePoint は送信用のコピーにだけ付ける', () => {
     const msgs = [user('a')];
     const sent = withTrailingCachePoint(msgs);
-    expect(sent[0]!.content).toHaveLength(2);
-    expect(msgs[0]!.content).toHaveLength(1);
+    expect(sent[0].content).toHaveLength(2);
+    expect(msgs[0].content).toHaveLength(1);
   });
 });

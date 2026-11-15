@@ -51,7 +51,9 @@ describe('AlwaysOnAgentStack', () => {
 
   it('API はすべて IAM 認証', () => {
     const methods = template.findResources('AWS::ApiGateway::Method');
-    const nonOptions = Object.values(methods).filter((m) => m.Properties.HttpMethod !== 'OPTIONS');
+    const nonOptions = (Object.values(methods) as { Properties: { HttpMethod: string; AuthorizationType: string } }[]).filter(
+      (m) => m.Properties.HttpMethod !== 'OPTIONS',
+    );
     expect(nonOptions).toHaveLength(3);
     for (const m of nonOptions) expect(m.Properties.AuthorizationType).toBe('AWS_IAM');
   });

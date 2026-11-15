@@ -49,7 +49,7 @@ describe('groupIntoRuns', () => {
     expect(batches).toHaveLength(2);
     // 最初に届いたイベント（payload 1）を含む新規 session が先
     expect(batches[0]).toMatchObject({ sessionId: 's-new', resume: false });
-    expect(batches[0]!.events.map((e) => e.payload)).toEqual([1, 3]);
+    expect(batches[0].events.map((e) => e.payload)).toEqual([1, 3]);
     expect(batches[1]).toMatchObject({ sessionId: SID, resume: true });
   });
 });
@@ -61,7 +61,7 @@ describe('processUser', () => {
     const res = await processUser('u', deps, opts);
     expect(res.status).toBe('ok');
     expect(calls).toHaveLength(1);
-    expect(calls[0]!.events.map((e) => (e.payload as { text: string }).text)).toEqual(['a', 'b', 'c']);
+    expect(calls[0].events.map((e) => (e.payload as { text: string }).text)).toEqual(['a', 'b', 'c']);
     expect((await inbox.listRecentEvents('u', 10)).every((e) => e.status === 'done')).toBe(true);
     expect(inbox.leases.size).toBe(0);
   });
@@ -72,7 +72,7 @@ describe('processUser', () => {
     await messages.put({ userId: 'u', sessionId: SID, runId: 'r0', text: 'second', importance: 'normal' });
     await inbox.appendEvent({ userId: 'u', type: 'user_message', source: 'user', payload: {} });
     await processUser('u', deps, opts);
-    expect(calls[0]!.recentMessages.map((m) => m.text)).toEqual(['first', 'second']);
+    expect(calls[0].recentMessages.map((m) => m.text)).toEqual(['first', 'second']);
   });
 
   it('他の worker がリースを持っていれば何もしない（inbox ごとに worker は 1 つ）', async () => {
@@ -107,7 +107,7 @@ describe('processUser', () => {
       return ok(req);
     };
     await processUser('u', deps, opts);
-    expect(calls.map((c) => (c.events[0]!.payload as { text: string }).text)).toEqual(['first', 'late']);
+    expect(calls.map((c) => (c.events[0].payload as { text: string }).text)).toEqual(['first', 'late']);
   });
 
   it('失敗した run は pending に戻して再試行し、上限に達したら failed にする', async () => {
@@ -141,7 +141,7 @@ describe('processUser', () => {
     expect(res).toMatchObject({ status: 'ok', rewoken: true });
     expect(calls).toHaveLength(0);
     expect(deps.rewake).toHaveBeenCalledWith('u');
-    expect((await inbox.listOpenEvents('u'))[0]!.status).toBe('pending');
+    expect((await inbox.listOpenEvents('u'))[0].status).toBe('pending');
     expect(inbox.leases.size).toBe(0);
   });
 

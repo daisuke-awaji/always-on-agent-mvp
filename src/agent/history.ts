@@ -23,7 +23,7 @@ export function trimHistory(messages: Message[], opts: { maxMessages: number; ma
   const size = (ms: Message[]) => JSON.stringify(ms).length;
   if (messages.length <= opts.maxMessages && size(messages) <= opts.maxChars) return messages;
   for (let i = 1; i < messages.length; i++) {
-    if (!isPlainUserTurn(messages[i]!)) continue;
+    if (!isPlainUserTurn(messages[i])) continue;
     const rest = messages.slice(i);
     if (rest.length <= opts.maxMessages && size(rest) <= opts.maxChars) return rest;
   }
@@ -36,7 +36,7 @@ export function trimHistory(messages: Message[], opts: { maxMessages: number; ma
  * 保存する履歴には cachePoint を残さない。
  */
 export function withTrailingCachePoint(messages: Message[]): Message[] {
-  if (messages.length === 0) return messages;
-  const last = messages.at(-1)!;
+  const last = messages.at(-1);
+  if (!last) return messages;
   return [...messages.slice(0, -1), { ...last, content: [...(last.content ?? []), { cachePoint: { type: 'default' } }] }];
 }

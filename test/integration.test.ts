@@ -7,7 +7,7 @@ import { SessionStore } from '../src/agent/stores.js';
 import { buildHandler } from '../src/functions/handler.js';
 import { processUser, type WorkerDeps } from '../src/functions/worker-core.js';
 import type { RunRequest, RunResult } from '../src/shared/types.js';
-import { InMemoryInbox, InMemoryMessages, MemFileStore, scriptedConverse } from './fakes.js';
+import { InMemoryInbox, InMemoryMessages, MemFileStore, readSession, scriptedConverse } from './fakes.js';
 
 /**
  * handler → inbox → (wake) → worker → HTTP → agent server → memory / session / send
@@ -40,9 +40,11 @@ beforeAll(async () => {
   await new Promise<void>((r) => server.listen(0, '127.0.0.1', r));
   baseUrl = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
 });
-afterAll(() => new Promise<void>((r) => server.close(() => r())));
+afterAll(() => new Promise<void>((r) => server.close(() => { r(); })));
 
-const handler = buildHandler({ inbox, messages, wake: async () => void wakes++ });
+const handler = buildHandler({ inbox, messages, wake: async () => {
+      wakes++;
+    } });
 let n = 0;
 const workerDeps: WorkerDeps = {
   inbox,
@@ -86,14 +88,14 @@ describe('end-to-end (in-process)', () => {
   });
 
   it('返信（sessionId 付き）は同じ session を再開し、指示が文脈に入る', async () => {
-    const sessionId = messages.items[0]!.sessionId;
+    const sessionId = messages.items[0].sessionId;
     await post({ text: 'ありがとう', sessionId });
     await processUser('alice', workerDeps, opts);
     const lastCall = calls.at(-2)!; // 最後の run の 1 ターン目
-    expect(lastCall.system![2]!.text).toContain('以前の session の続き');
-    expect(lastCall.system![2]!.text).toContain('深夜は連絡しない');
-    expect(lastCall.system![2]!.text).toContain('2 件受け取りました'); // 直近の送信
-    const saved = JSON.parse(files.files.get(`sessions/alice/${sessionId}.json`)!);
+    expect(lastCall.system![2].text).toContain('以前の session の続き');
+    expect(lastCall.system![2].text).toContain('深夜は連絡しない');
+    expect(lastCall.system![2].text).toContain('2 件受け取りました'); // 直近の送信
+    const saved = readSession(files, 'alice', sessionId);
     expect(saved.runs).toBe(2);
   });
 

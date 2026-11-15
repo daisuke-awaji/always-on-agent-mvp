@@ -172,7 +172,7 @@ export async function runAgent(req: RunRequest, deps: AgentDeps): Promise<RunRes
           sends++;
           content = [{ text: `sent (messageId=${messageId})` }];
         } else {
-          throw new Error(`unknown tool: ${tu.name}`);
+          throw new Error(`unknown tool: ${tu.name ?? '(none)'}`);
         }
       } catch (err) {
         status = 'error';
@@ -206,7 +206,7 @@ export async function runAgent(req: RunRequest, deps: AgentDeps): Promise<RunRes
 /** 保存済み session の最後のアシスタント発話（run の内部サマリ）を取り出す。デバッグ用 */
 export function lastAssistantText(messages: Message[]): string | undefined {
   for (let i = messages.length - 1; i >= 0; i--) {
-    const m = messages[i]!;
+    const m = messages[i];
     if (m.role !== 'assistant') continue;
     const text = (m.content ?? []).flatMap((c) => (c.text ? [c.text] : [])).join('\n');
     if (text) return text;

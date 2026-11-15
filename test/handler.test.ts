@@ -1,7 +1,10 @@
 import type { APIGatewayProxyEvent } from 'aws-lambda';
 import { describe, expect, it } from 'vitest';
 import { buildHandler, parseEventBody } from '../src/functions/handler.js';
-import type { WakeMessage } from '../src/shared/types.js';
+import type { InboxEvent, WakeMessage } from '../src/shared/types.js';
+import type { StoredMessage } from '../src/shared/message-repo.js';
+
+type PostEventResponse = { eventId: string; status: string; duplicate: boolean };
 import { InMemoryInbox, InMemoryMessages } from './fakes.js';
 
 function setup() {
@@ -42,7 +45,7 @@ describe('parseEventBody', () => {
     [{ type: 'webhook', source: 'github' }, 'payload is required'],
     [{ text: 'hi', sessionId: '../../etc' }, 'invalid sessionId'],
   ])('不正な入力を拒否する %j', (body, message) => {
-    const r = parseEventBody('u', body as Record<string, unknown>);
+    const r = parseEventBody('u', body);
     expect('error' in r && r.error).toContain(message);
   });
 });
@@ -52,17 +55,17 @@ describe('handler', () => {
     const { inbox, wakes, handler } = setup();
     const res = await handler(req('POST', '/users/{userId}/events', 'alice', { text: 'hi', sessionId: SID }));
     expect(res.statusCode).toBe(202);
-    const body = JSON.parse(res.body);
+    const body = (JSON.parse(res.body) as PostEventResponse);
     expect(body).toMatchObject({ status: 'pending', duplicate: false });
-    expect(wakes).toEqual([{ msg: { userId: 'alice', eventSk: expect.stringMatching(/^EVT#/) }, dedupId: body.eventId }]);
+    expect(wakes).toEqual([{ msg: { userId: 'alice', eventSk: expect.stringMatching(/^EVT#/) as unknown }, dedupId: body.eventId }]);
     expect((await inbox.listOpenEvents('alice'))[0]).toMatchObject({ sessionId: SID, type: 'user_message' });
   });
 
   it('同じ sourceEventId の再送は重複として扱い、取りこぼし防止のため wake は送り直す', async () => {
     const { inbox, wakes, handler } = setup();
     const body = { type: 'webhook', source: 'github', sourceEventId: 'delivery-1', payload: { action: 'opened' } };
-    const r1 = JSON.parse((await handler(req('POST', '/users/{userId}/events', 'alice', body))).body);
-    const r2 = JSON.parse((await handler(req('POST', '/users/{userId}/events', 'alice', body))).body);
+    const r1 = (JSON.parse((await handler(req('POST', '/users/{userId}/events', 'alice', body))).body) as PostEventResponse);
+    const r2 = (JSON.parse((await handler(req('POST', '/users/{userId}/events', 'alice', body))).body) as PostEventResponse);
     expect(r2).toMatchObject({ duplicate: true, eventId: r1.eventId });
     expect(await inbox.listOpenEvents('alice')).toHaveLength(1);
     expect(wakes.map((w) => w.dedupId)).toEqual([r1.eventId, r1.eventId]);
@@ -72,10 +75,10 @@ describe('handler', () => {
     const { messages, handler } = setup();
     await messages.put({ userId: 'alice', sessionId: SID, runId: 'r', text: 'hello', importance: 'normal' });
     const res = await handler(req('GET', '/users/{userId}/messages', 'alice', undefined, { limit: '5' }));
-    expect(JSON.parse(res.body).messages[0]).toMatchObject({ text: 'hello' });
+    expect((JSON.parse(res.body) as { messages: StoredMessage[] }).messages[0]).toMatchObject({ text: 'hello' });
     await handler(req('POST', '/users/{userId}/events', 'alice', { text: 'x' }));
     const ev = await handler(req('GET', '/users/{userId}/events', 'alice'));
-    expect(JSON.parse(ev.body).events).toHaveLength(1);
+    expect((JSON.parse(ev.body) as { events: InboxEvent[] }).events).toHaveLength(1);
   });
 
   it.each([

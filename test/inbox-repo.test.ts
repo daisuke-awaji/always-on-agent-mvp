@@ -35,10 +35,10 @@ describe('appendEvent', () => {
     });
     expect(duplicate).toBe(false);
     expect(event.sk).toBe(`EVT#2026-11-15T00:00:00.000Z#${event.eventId}`);
-    const items = ddb.commandCalls(TransactWriteCommand)[0]!.args[0].input.TransactItems!;
+    const items = ddb.commandCalls(TransactWriteCommand)[0].args[0].input.TransactItems!;
     expect(items).toHaveLength(2);
-    expect(items[0]!.Put).toMatchObject({ Item: { pk: 'USER#u', sk: 'DEDUP#github#d-1' }, ConditionExpression: 'attribute_not_exists(pk)' });
-    expect(items[1]!.Put).toMatchObject({ Item: { pk: 'USER#u', status: 'pending', attempts: 0 } });
+    expect(items[0].Put).toMatchObject({ Item: { pk: 'USER#u', sk: 'DEDUP#github#d-1' }, ConditionExpression: 'attribute_not_exists(pk)' });
+    expect(items[1].Put).toMatchObject({ Item: { pk: 'USER#u', status: 'pending', attempts: 0 } });
   });
 
   it('重複排除アイテムの条件で失敗したら既存イベントを返す', async () => {
@@ -73,10 +73,10 @@ describe('listOpenEvents', () => {
       .resolvesOnce({ Items: [{ pk: 'USER#u', sk: 'EVT#2', eventId: '2' }] });
     const events = await repo().listOpenEvents('u');
     expect(events.map((e) => e.eventId)).toEqual(['1', '2']);
-    const input = ddb.commandCalls(QueryCommand)[0]!.args[0].input;
+    const input = ddb.commandCalls(QueryCommand)[0].args[0].input;
     expect(input).toMatchObject({ ConsistentRead: true, ScanIndexForward: true });
     expect(input.FilterExpression).toContain('IN (:pending, :processing)');
-    expect(ddb.commandCalls(QueryCommand)[1]!.args[0].input.ExclusiveStartKey).toEqual({ pk: 'USER#u', sk: 'EVT#1' });
+    expect(ddb.commandCalls(QueryCommand)[1].args[0].input.ExclusiveStartKey).toEqual({ pk: 'USER#u', sk: 'EVT#1' });
   });
 });
 
@@ -84,7 +84,7 @@ describe('lease', () => {
   it('期限切れか自分が持ち主のときだけ取得できる条件で更新する', async () => {
     ddb.on(UpdateCommand).resolves({});
     expect(await repo().acquireLease('u', 'w1', 60_000)).toBe(true);
-    const input = ddb.commandCalls(UpdateCommand)[0]!.args[0].input;
+    const input = ddb.commandCalls(UpdateCommand)[0].args[0].input;
     expect(input.ConditionExpression).toBe('attribute_not_exists(pk) OR leaseUntil < :now OR #owner = :owner');
     expect(input.ExpressionAttributeValues).toMatchObject({ ':owner': 'w1', ':now': fixedNow.getTime(), ':until': fixedNow.getTime() + 60_000 });
   });
@@ -97,7 +97,7 @@ describe('lease', () => {
   it('解放は自分が持ち主のときだけ。他人に取られていても例外にしない', async () => {
     ddb.on(DeleteCommand).rejects(new ConditionalCheckFailedException({ message: 'x', $metadata: {} }));
     await expect(repo().releaseLease('u', 'w1')).resolves.toBeUndefined();
-    expect(ddb.commandCalls(DeleteCommand)[0]!.args[0].input.ConditionExpression).toBe('#owner = :owner');
+    expect(ddb.commandCalls(DeleteCommand)[0].args[0].input.ConditionExpression).toBe('#owner = :owner');
   });
 });
 
@@ -107,7 +107,7 @@ describe('status transitions', () => {
   it('done は同じ runId のときだけ', async () => {
     ddb.on(UpdateCommand).resolves({});
     await repo().markDone('u', [ev(0)], 'run-1');
-    const input = ddb.commandCalls(UpdateCommand)[0]!.args[0].input;
+    const input = ddb.commandCalls(UpdateCommand)[0].args[0].input;
     expect(input.ConditionExpression).toBe('runId = :runId');
     expect(input.ExpressionAttributeValues).toMatchObject({ ':done': 'done', ':runId': 'run-1' });
   });
