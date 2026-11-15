@@ -126,7 +126,8 @@ export class MemoryStore {
 
 export interface MemoryToolInput {
   command: 'view' | 'create' | 'str_replace' | 'delete';
-  path: string;
+  /** モデルが省略することがある（view ではルートとして扱う） */
+  path?: string;
   file_text?: string;
   old_str?: string;
   new_str?: string;

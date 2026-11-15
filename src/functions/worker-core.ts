@@ -70,7 +70,7 @@ export function groupIntoRuns(events: InboxEvent[], newSessionId: () => string):
   const batches: RunBatch[] = [...bySession.entries()].map(([sessionId, evs]) => ({ sessionId, resume: true, events: evs }));
   if (fresh.length > 0) batches.push({ sessionId: newSessionId(), resume: false, events: fresh });
   // 先に届いたイベントを含む run から順に処理する
-  return batches.sort((a, b) => a.events[0]!.receivedAt.localeCompare(b.events[0]!.receivedAt));
+  return batches.sort((a, b) => a.events[0].receivedAt.localeCompare(b.events[0].receivedAt));
 }
 
 export async function processUser(userId: string, deps: WorkerDeps, opts: WorkerOptions): Promise<ProcessResult> {

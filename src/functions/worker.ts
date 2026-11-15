@@ -94,13 +94,13 @@ export const handler = async (event: SQSEvent, context: Context): Promise<SQSBat
     newId: () => randomUUID(),
     newSessionId: () => `s-${randomUUID()}`,
     canStartRun: () => context.getRemainingTimeInMillis() > MIN_REMAINING_TO_START_MS,
-    log: (msg, data) => console.log(JSON.stringify({ msg, ...data })),
+    log: (msg, data) => { console.log(JSON.stringify({ msg, ...data })); },
   };
 
   for (const [userId, records] of byUser) {
     try {
       const result = await processUser(userId, deps, {
-        owner: `${context.awsRequestId}`,
+        owner: context.awsRequestId,
         leaseMs: LEASE_MS,
         maxRounds: 5,
         maxAttempts: 3,

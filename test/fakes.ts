@@ -1,10 +1,17 @@
 import { randomUUID } from 'node:crypto';
 import type { ConverseCommandInput, ContentBlock } from '@aws-sdk/client-bedrock-runtime';
 import type { ConverseFn } from '../src/agent/loop.js';
-import type { FileStore } from '../src/agent/stores.js';
+import type { FileStore, SessionRecord } from '../src/agent/stores.js';
 import { eventSk, type InboxRepository, type NewEventInput } from '../src/shared/inbox-repo.js';
 import type { MessageRepository, StoredMessage } from '../src/shared/message-repo.js';
 import type { InboxEvent } from '../src/shared/types.js';
+
+/** MemFileStore に保存されたセッション記録を読む */
+export function readSession(files: MemFileStore, userId: string, sessionId: string): SessionRecord {
+  const raw = files.files.get(`sessions/${userId}/${sessionId}.json`);
+  if (raw === undefined) throw new Error(`session not found: ${userId}/${sessionId}`);
+  return JSON.parse(raw) as SessionRecord;
+}
 
 /** DynamoInboxRepository と同じ意味論を持つインメモリ実装 */
 export class InMemoryInbox implements InboxRepository {

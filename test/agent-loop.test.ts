@@ -3,7 +3,7 @@ import { AGENT_LIMITS, runAgent, type AgentDeps } from '../src/agent/loop.js';
 import type { OutgoingMessage, Sender } from '../src/agent/sender.js';
 import { SessionStore } from '../src/agent/stores.js';
 import type { RunRequest } from '../src/shared/types.js';
-import { MemFileStore, scriptedConverse, type ScriptStep } from './fakes.js';
+import { MemFileStore, readSession, scriptedConverse, type ScriptStep } from './fakes.js';
 
 const SID = 's-11111111-1111-1111-1111-111111111111';
 
@@ -39,14 +39,14 @@ describe('runAgent', () => {
     expect(sent[0]).toMatchObject({ userId: 'alice', sessionId: SID, runId: 'run-1', text: '了解しました。', importance: 'normal' });
 
     // 静的プロンプト → cachePoint → 動的文脈 の順。イベントは <events> で囲む
-    const first = calls[0]!;
+    const first = calls[0];
     expect(first.system![1]).toEqual({ cachePoint: { type: 'default' } });
-    expect(first.system![2]!.text).toContain('新しい session');
+    expect(first.system![2].text).toContain('新しい session');
     expect(JSON.stringify(first.messages)).toContain('<events count=\\"1\\">');
     // 最後のメッセージにキャッシュポイント
     expect(first.messages!.at(-1)!.content!.at(-1)).toEqual({ cachePoint: { type: 'default' } });
 
-    const saved = JSON.parse(files.files.get(`sessions/alice/${SID}.json`)!);
+    const saved = readSession(files, 'alice', SID);
     expect(saved.runs).toBe(1);
     expect(saved.messages).toHaveLength(6); // user, (asst, toolResult) x2, asst
     expect(JSON.stringify(saved.messages)).not.toContain('cachePoint');
@@ -57,11 +57,11 @@ describe('runAgent', () => {
     await files.put('memory/alice/instructions.md', '深夜は連絡しない');
     await runAgent(req(), deps);
     await runAgent(req({ runId: 'run-2', events: [{ eventId: 'e2', type: 'webhook', source: 'github', receivedAt: 'x', payload: { a: 1 } }] }), deps);
-    const second = calls[1]!;
-    expect(second.system![2]!.text).toContain('以前の session の続き');
-    expect(second.system![2]!.text).toContain('深夜は連絡しない');
+    const second = calls[1];
+    expect(second.system![2].text).toContain('以前の session の続き');
+    expect(second.system![2].text).toContain('深夜は連絡しない');
     expect(second.messages).toHaveLength(3); // user(e1), asst, user(e2)
-    expect(JSON.parse(files.files.get(`sessions/alice/${SID}.json`)!).runs).toBe(2);
+    expect(readSession(files, 'alice', SID).runs).toBe(2);
   });
 
   it('送らない判断もできる（silent）', async () => {
@@ -76,7 +76,7 @@ describe('runAgent', () => {
     const result = await runAgent(req(), deps);
     expect(result.messagesSent).toBe(AGENT_LIMITS.maxSendsPerRun);
     expect(sent).toHaveLength(3);
-    const toolResults = calls[1]!.messages!.at(-1)!.content!.filter((c) => c.toolResult);
+    const toolResults = calls[1].messages!.at(-1)!.content!.filter((c) => c.toolResult);
     expect(toolResults.at(-1)!.toolResult!.status).toBe('error');
   });
 
@@ -91,16 +91,16 @@ describe('runAgent', () => {
       { text: 'done' },
     ]);
     await runAgent(req(), deps);
-    const results = calls[1]!.messages!.at(-1)!.content!.filter((c) => c.toolResult).map((c) => c.toolResult!);
+    const results = calls[1].messages!.at(-1)!.content!.filter((c) => c.toolResult).map((c) => c.toolResult!);
     expect(results.map((r) => r.status)).toEqual(['error', 'error']);
-    expect(results[1]!.content![0]!.text).toContain('unknown tool');
+    expect(results[1].content![0].text).toContain('unknown tool');
   });
 
   it('ターン上限で打ち切っても、次の run が再開できる形で保存する', async () => {
     const { files, deps } = setup(() => ({ tools: [{ name: 'memory', input: { command: 'view', path: '' } }] }));
     const result = await runAgent(req(), deps);
     expect(result).toMatchObject({ turns: AGENT_LIMITS.maxTurns, stopReason: 'max_turns' });
-    const saved = JSON.parse(files.files.get(`sessions/alice/${SID}.json`)!);
-    expect(saved.messages.at(-1).role).toBe('user'); // toolResult で終わる → 次回は appendUserContent でまとめる
+    const saved = readSession(files, 'alice', SID);
+    expect(saved.messages.at(-1)?.role).toBe('user'); // toolResult で終わる → 次回は appendUserContent でまとめる
   });
 });
