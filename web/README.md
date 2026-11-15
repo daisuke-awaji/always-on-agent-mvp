@@ -2,6 +2,8 @@
 
 A frontend-only mock of the always-on agent's UI. There is no backend: [Mock Service Worker](https://mswjs.io/) answers the same API as `src/functions/handler.ts`, and a small simulator in the browser plays the worker and the agent.
 
+Published at <https://daisuke-awaji.github.io/always-on-agent-mvp/> by [`.github/workflows/pages.yml`](../.github/workflows/pages.yml).
+
 ```bash
 cd web
 npm ci
