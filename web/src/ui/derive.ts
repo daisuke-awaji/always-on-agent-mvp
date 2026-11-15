@@ -87,8 +87,11 @@ export function totalUnread(sessions: Session[], read: ReadonlySet<string>): num
 export function summarize(e: InboxEvent): string {
   const p = typeof e.payload === 'object' && e.payload !== null ? (e.payload as Record<string, unknown>) : undefined;
   if (e.type === 'user_message') return firstLine(typeof p?.text === 'string' ? p.text : '');
-  if (e.type === 'system')
+  if (e.type === 'system') {
+    // タイマーで起きたときは、タイマーの題名（{ timerId, kind, title }）
+    if (typeof p?.title === 'string') return p.title;
     return p?.kind === 'daily_check' ? '朝のチェック' : typeof p?.kind === 'string' ? p.kind : 'システム';
+  }
   const n = readEveryday(e);
   if (!n) return `${SOURCE_LABEL[e.source] ?? e.source} からの通知`;
   switch (n.source) {
