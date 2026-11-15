@@ -1,5 +1,10 @@
-import { Activity, Inbox, LayoutGrid, MessageSquare, SlidersHorizontal } from 'lucide-react';
+import { Activity, Check, Inbox, LayoutGrid, MessageSquare, RotateCcw, Send, SlidersHorizontal } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { Avatar } from '@/components/ui/avatar-clean';
+import { Badge } from '@/components/ui/badge-clean';
+import { Button } from '@/components/ui/button-clean';
+import { Card, CardHeader } from '@/components/ui/card-clean';
+import { Dialog } from '@/components/ui/dialog-clean';
 import { ApiError, postEvent } from './api/client';
 import { resetState, getState } from './mocks/db';
 import { DEMO_USER, SCENARIOS, type ScenarioId } from './mocks/scenarios';
@@ -8,7 +13,7 @@ import { ChatPattern } from './patterns/ChatPattern';
 import { ConsolePattern } from './patterns/ConsolePattern';
 import { InboxPattern } from './patterns/InboxPattern';
 import { Overview } from './patterns/Overview';
-import { ErrorBanner, Sheet, Toast, useVisualViewportHeight } from './ui/components';
+import { AgentAvatar, ErrorBanner, Toast, useVisualViewportHeight } from './ui/components';
 import { SAMPLE_EVENTS } from './ui/samples';
 import { useAgentData } from './ui/useAgentData';
 import { PATTERNS } from './ui/patterns';
@@ -52,9 +57,7 @@ export function App() {
     <div className={`app route-${route} ${loc.sub ? 'has-sub' : ''}`}>
       <header className="topbar">
         <a className="brand" href="#/" aria-label="Always-on Agent UI モック（概要）">
-          <span className="brand-mark" aria-hidden>
-            ◐
-          </span>
+          <AgentAvatar size={24} />
           <span className="brand-name">Always-on Agent</span>
           <span className="brand-sub">UI モック</span>
         </a>
@@ -71,13 +74,14 @@ export function App() {
             >
               <span className="tab-letter">{p.letter}</span>
               {p.name}
-              {p.route === 'inbox' && unread > 0 && <span className="count">{unread}</span>}
+              {p.route === 'inbox' && unread > 0 && <Badge count={unread} aria-label={`未読 ${String(unread)} 件`} />}
             </a>
           ))}
         </nav>
         <div className="topbar-right">
           <span className="user-chip" title="userId">
-            {userId}
+            <Avatar name={userId} seed={userId} size={20} aria-hidden />
+            <span className="user-name">{userId}</span>
           </span>
           {USE_MOCK && (
             <MockPanel
@@ -111,8 +115,8 @@ export function App() {
             <span className="bottom-nav-icon">
               <Icon size={24} strokeWidth={route === r ? 2.25 : 1.75} aria-hidden />
               {r === 'inbox' && unread > 0 && (
-                <span className="count count-on-icon" aria-label={`未読 ${String(unread)} 件`}>
-                  {unread > 99 ? '99+' : unread}
+                <span className="count-on-icon">
+                  <Badge count={unread} aria-label={`未読 ${String(unread)} 件`} />
                 </span>
               )}
             </span>
@@ -151,76 +155,88 @@ function MockPanel({ userId, onPosted }: { userId: string; onPosted: (msg: strin
   };
 
   return (
-    <div className="mock-panel">
-      <button
-        type="button"
-        className="btn btn-mock"
-        aria-haspopup="dialog"
-        aria-label={`モック設定（${SCENARIOS[scenario].label}）`}
-        onClick={() => {
-          setOpen(true);
-        }}
-      >
-        <SlidersHorizontal size={16} aria-hidden />
-        <span className="mock-label">モック設定</span>
-        <span className="mock-scenario">{SCENARIOS[scenario].label}</span>
-      </button>
-      <Sheet
-        open={open}
-        title="モック設定"
-        onClose={() => {
-          setOpen(false);
-        }}
-      >
-        <section>
-          <h3>シナリオ</h3>
-          <p className="muted">切り替えるとデータを初期状態に戻します。</p>
-          <div className="scenario-list">
-            {Object.values(SCENARIOS).map((s) => (
-              <label key={s.id} className={`scenario ${scenario === s.id ? 'scenario-active' : ''}`}>
-                <input
-                  type="radio"
-                  name="scenario"
-                  checked={scenario === s.id}
-                  onChange={() => {
-                    setScenario(s.id);
-                    resetState(s.id);
-                    resumeAll();
-                    done(`シナリオ「${s.label}」に切り替えました`);
-                  }}
-                />
-                <span>
-                  <strong>{s.label}</strong>
-                  <span className="muted">{s.description}</span>
-                </span>
-              </label>
-            ))}
-          </div>
-          <button
-            type="button"
-            className="btn btn-small"
+    <Dialog
+      open={open}
+      onOpenChange={setOpen}
+      title="モック設定"
+      description="ブラウザの中のモック（MSW）だけを変えます。AWS にはつながりません。"
+      closeLabel="閉じる"
+      trigger={
+        <Button
+          variant="secondary"
+          size="sm"
+          icon={<SlidersHorizontal size={14} strokeWidth={1.9} />}
+          aria-label={`モック設定（${SCENARIOS[scenario].label}）`}
+        >
+          <span className="mock-label">モック設定</span>
+          <span className="mock-scenario">{SCENARIOS[scenario].label}</span>
+        </Button>
+      }
+    >
+      <section className="mock-section" aria-labelledby="mock-scenario-title">
+        <div className="mock-section-head">
+          <h3 id="mock-scenario-title">シナリオ</h3>
+          <Button
+            variant="ghost"
+            size="sm"
+            icon={<RotateCcw size={14} strokeWidth={1.9} />}
             onClick={() => {
               resetState(scenario);
               resumeAll();
               done('データを初期状態に戻しました');
             }}
           >
-            このシナリオを最初からやり直す
-          </button>
-        </section>
-        <section>
-          <h3>Webhook を送る</h3>
-          <p className="muted">外部サービスから届いたことにして POST /users/{userId}/events に送ります。</p>
-          <div className="sample-list">
-            {SAMPLE_EVENTS.map((s) => (
-              <button key={s.id} type="button" className="sample" onClick={() => void send(s.id)}>
-                <strong>{s.label}</strong>
-                <span className="muted">{s.hint}</span>
-              </button>
-            ))}
-          </div>
-        </section>
-      </Sheet>
-    </div>
+            最初からやり直す
+          </Button>
+        </div>
+        <ul className="choice-list">
+          {Object.values(SCENARIOS).map((s) => (
+            <Card key={s.id} as="li" interactive selected={scenario === s.id}>
+              <CardHeader
+                titleAs="p"
+                title={
+                  <button
+                    type="button"
+                    aria-pressed={scenario === s.id}
+                    onClick={() => {
+                      setScenario(s.id);
+                      resetState(s.id);
+                      resumeAll();
+                      done(`シナリオ「${s.label}」に切り替えました`);
+                    }}
+                  >
+                    {s.label}
+                  </button>
+                }
+                description={s.description}
+                action={scenario === s.id ? <Check size={16} strokeWidth={2} aria-hidden /> : undefined}
+              />
+            </Card>
+          ))}
+        </ul>
+      </section>
+      <section className="mock-section" aria-labelledby="mock-webhook-title">
+        <div className="mock-section-head">
+          <h3 id="mock-webhook-title">Webhook を送る</h3>
+          <code className="mock-endpoint">POST /users/{userId}/events</code>
+        </div>
+        <ul className="choice-list">
+          {SAMPLE_EVENTS.map((s) => (
+            <Card key={s.id} as="li" interactive>
+              <CardHeader
+                titleAs="p"
+                title={
+                  <button type="button" onClick={() => void send(s.id)}>
+                    {s.label}
+                  </button>
+                }
+                description={s.hint}
+                action={<Send size={14} strokeWidth={1.9} aria-hidden />}
+              />
+            </Card>
+          ))}
+        </ul>
+      </section>
+    </Dialog>
   );
 }
