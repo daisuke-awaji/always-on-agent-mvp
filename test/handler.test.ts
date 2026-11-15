@@ -81,6 +81,11 @@ describe('handler', () => {
   it.each([
     [req('POST', '/users/{userId}/events', 'a/b', { text: 'x' }), 400],
     [req('POST', '/users/{userId}/events', 'alice', 'not-json'), 400],
+    // JSON としては正しいがオブジェクトではない本文
+    [req('POST', '/users/{userId}/events', 'alice', 'null'), 400],
+    [req('POST', '/users/{userId}/events', 'alice', '[]'), 400],
+    [req('POST', '/users/{userId}/events', 'alice', '"hello"'), 400],
+    [req('POST', '/users/{userId}/events', 'alice', '42'), 400],
     [req('POST', '/users/{userId}/events', 'alice', 'x'.repeat(70 * 1024)), 413],
     [req('POST', '/users/{userId}/events', 'alice'), 400],
     [req('DELETE', '/users/{userId}/events', 'alice'), 404],
