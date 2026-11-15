@@ -215,7 +215,7 @@ function Thread({ items, busy }: { items: TimelineItem[]; busy: boolean }) {
     <div className="thread">
       {items.map((it, i) => {
         const day = dayLabel(it.at);
-        const prev = items[i - 1];
+        const prev = i > 0 ? items.at(i - 1) : undefined;
         const divider = !prev || dayLabel(prev.at) !== day ? <div className="day-divider">{day}</div> : null;
         const key = it.kind === 'event' ? it.event.eventId : it.message.messageId;
         return (
