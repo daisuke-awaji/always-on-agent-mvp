@@ -4,20 +4,9 @@ This sample builds an MVP on AWS following [Building always-on agents (Claude, 2
 
 An always-on agent is not literally "always running". It sleeps most of the time, wakes when an event arrives, does a short **run**, saves its state, and goes back to sleep. This MVP implements three of the five components the article lists: the **Event inbox**, **Memory**, and the simple form of the **Outbox** (a send tool). The **Timers** and the rest of **Permissions** belong to later stages.
 
-```mermaid
-flowchart LR
-  C["Client<br/>scripts/aoa.mjs"] -- "SigV4" --> API["API Gateway<br/>(IAM auth)"]
-  API --> H["Handler λ<br/>ack fast"]
-  H -- "idempotent write" --> IN[("Inbox<br/>DynamoDB")]
-  H -- "wake<br/>group=userId" --> Q["SQS FIFO"]
-  Q --> W["Worker λ<br/>lease / batch / retry"]
-  W <-- "pending → processing → done" --> IN
-  W -- "InvokeAgentRuntime<br/>runtimeSessionId = session" --> RT["AgentCore Runtime<br/>Node 22 / Claude on Bedrock"]
-  RT <-- "memory/userId/…<br/>sessions/userId/…" --> S3[("S3<br/>versioned")]
-  RT -- "send_message" --> MSG[("Messages<br/>DynamoDB")]
-  RT -- "send_message" --> SNS["SNS<br/>(email, optional)"]
-  W -. "last 5 sent messages" .- MSG
-```
+![Architecture: a client posts events through API Gateway to the Handler Lambda, which writes them to the Inbox table and sends a wake signal to an SQS FIFO queue. The Worker Lambda leases the user's inbox and invokes AgentCore Runtime, which calls Claude on Bedrock, keeps memory and sessions in S3, and sends messages to the Messages table and SNS.](docs/architecture.png)
+
+Thick arrows are the event flow, thin arrows are data reads and writes, and dashed arrows are failure handling and monitoring. The source is [`docs/architecture.drawio`](docs/architecture.drawio): edit it in [draw.io](https://www.drawio.com/), then export it to `docs/architecture.png` (PNG, zoom 200%, border 24, white background).
 
 ## How the article's components map to this sample
 
@@ -94,6 +83,7 @@ scripts/build-agent.mjs          esbuild bundling (runs automatically on cdk syn
 scripts/aoa.mjs                  Client for the deployed API (SigV4)
 scripts/local-scenario.mjs       Check behavior locally against the real model
 test/                            vitest (unit, integration, CDK assertions)
+docs/architecture.drawio         Architecture diagram source (exported to docs/architecture.png)
 ```
 
 ## Requirements
