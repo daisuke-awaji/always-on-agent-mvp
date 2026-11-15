@@ -33,6 +33,29 @@ The API only returns events and sent messages. The UI rebuilds sessions and runs
 
 Checked in headless Chromium with iPhone 13, Pixel 7, and landscape emulation, plus axe. The iOS keyboard and safe areas still need a check on a real device.
 
+## UI components (affectUI)
+
+The parts come from [affectUI](https://www.affectui.com/) (free items, MIT), in the clean style. Each one is a single `.tsx` file with its own styles, installed with the shadcn CLI into `src/components/ui/` and imported as `@/components/ui/<name>-clean`.
+
+| Where | Item |
+| --- | --- |
+| Statuses, counts, 重要 | Badge |
+| Buttons, the send button and its shortcut | Button, Icon Button, Tooltip |
+| Sources and the agent | Avatar (the agent is `kind="agent"`) |
+| Waiting for the agent in A | Thinking Loader, its label set from the event's real status (受付済み / 処理中) |
+| Filters | Segmented Control (B), Toggle Group (C, a Select on phones) |
+| Mock settings | Dialog (a bottom sheet on phones), Card |
+| C's send form | Select, Text Field, Text Area |
+| C's run detail | Code Block (payload), Tool Call Card (`send_message`, with the same result string as `src/agent/loop.ts`) |
+| Overview | Card |
+| Loading and empty lists | Skeleton, Empty State, Spinner |
+
+Rules:
+
+- Don't edit the files in `src/components/ui/`. To update them, install again: `npx shadcn@latest add @affectui/<name>-clean --overwrite`. ESLint and Prettier skip that folder.
+- Colors and shadows stay at affectUI's defaults. `src/styles.css` only sets `--aui-font` (a Japanese font stack) and `--aui-font-mono`, and uses the same grays for the hand-written parts. Color is only in status badges.
+- `tsconfig.json` has no `noUncheckedIndexedAccess`: the affectUI files don't compile with it, and TypeScript can't turn it off per file. Our code still uses `.at()` and `Partial<Record<…>>` where a value can be missing.
+
 ## How the mock works
 
 | File | Stands in for |

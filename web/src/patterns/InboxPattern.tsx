@@ -1,7 +1,11 @@
-import { ChevronDown, MessageSquare } from 'lucide-react';
+import { ChevronDown, Inbox, MessageSquare } from 'lucide-react';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { Badge } from '@/components/ui/badge-clean';
+import { Button } from '@/components/ui/button-clean';
+import { SegmentedControl } from '@/components/ui/segmented-control-clean';
+import { Spinner } from '@/components/ui/spinner-clean';
 import type { StoredMessage } from '../api/schema';
-import { Composer, Empty, PaneHeader, SourceAvatar, StatusBadge } from '../ui/components';
+import { Composer, Empty, HighBadge, ListSkeleton, PaneHeader, SourceAvatar, StatusBadge } from '../ui/components';
 import {
   buildRuns,
   buildSessions,
@@ -53,6 +57,7 @@ export function InboxPattern({
     filter === 'high' ? m.importance === 'high' : filter === 'unread' ? !read.has(m.messageId) : true,
   );
   const unread = data.messages.filter((m) => !read.has(m.messageId)).length;
+  const high = data.messages.filter((m) => m.importance === 'high').length;
   // URL で指定がなければ一覧の先頭を見せる（広い画面のとき。スマホでは一覧だけを見せる）
   const selected = sub ? data.messages.find((m) => m.messageId === sub) : list[0];
 
@@ -67,43 +72,35 @@ export function InboxPattern({
       <aside className="inbox-list split-list" aria-label="連絡">
         <div className="inbox-head">
           <h2>エージェントからの連絡</h2>
-          <div className="chips" role="group" aria-label="絞り込み">
-            {(
-              [
-                ['all', `すべて ${String(data.messages.length)}`],
-                ['unread', `未読 ${String(unread)}`],
-                ['high', '重要'],
-              ] as const
-            ).map(([f, label]) => (
-              <button
-                key={f}
-                type="button"
-                aria-pressed={filter === f}
-                className={`chip ${filter === f ? 'chip-active' : ''}`}
-                onClick={() => {
-                  setFilter(f);
-                }}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
+          <SegmentedControl<Filter>
+            aria-label="絞り込み"
+            variant="tray"
+            size="sm"
+            fullWidth
+            value={filter}
+            onChange={setFilter}
+            options={[
+              { value: 'all', label: 'すべて', count: data.messages.length },
+              { value: 'unread', label: '未読', count: unread },
+              { value: 'high', label: '重要', count: high },
+            ]}
+          />
         </div>
 
         {working.length > 0 && (
-          <div className="inbox-working">
-            <StatusBadge status="processing" />
+          <div className="inbox-note">
+            <Spinner size={12} />
             <span>{working.length} 件のイベントを見ています</span>
           </div>
         )}
         {failedRuns.length > 0 && (
-          <div className="inbox-failed">
-            <span className="badge badge-failed">失敗</span>
+          <div className="inbox-note">
+            <Badge tone="danger">失敗</Badge>
             <span>処理できなかったイベントが {failedRuns.reduce((n, r) => n + r.events.length, 0)} 件あります</span>
           </div>
         )}
 
-        {!data.loaded && <p className="muted pad">読み込み中…</p>}
+        {!data.loaded && <ListSkeleton label="連絡を読み込み中" />}
         <ul className="inbox-items">
           {list.map((m, i) => {
             const day = dayLabel(m.createdAt);
@@ -120,14 +117,11 @@ export function InboxPattern({
                     nav.open({ route: 'inbox', sub: m.messageId });
                   }}
                 >
-                  <span
-                    className={`dot ${isRead ? 'dot-none' : 'dot-unread'}`}
-                    aria-label={isRead ? undefined : '未読'}
-                  />
+                  <span className="unread-mark" aria-label={isRead ? undefined : '未読'} />
                   <span className="inbox-item-body">
                     <span className="inbox-item-title">{firstLine(m.text, 120)}</span>
                     <span className="inbox-item-meta">
-                      {m.importance === 'high' && <span className="badge badge-high">重要</span>}
+                      {m.importance === 'high' && <HighBadge />}
                       <span className="ellipsis">{triggerLabel(run)}</span>
                       <span className="nowrap">{relativeTime(m.createdAt, now)}</span>
                     </span>
@@ -138,7 +132,10 @@ export function InboxPattern({
           })}
         </ul>
         {data.loaded && list.length === 0 && (
-          <Empty title={filter === 'all' ? 'まだ連絡はありません' : '該当する連絡はありません'}>
+          <Empty
+            title={filter === 'all' ? 'まだ連絡はありません' : '該当する連絡はありません'}
+            icon={<Inbox size={18} strokeWidth={1.9} />}
+          >
             エージェントは、知らせる価値があると判断したときだけ連絡します。
           </Empty>
         )}
@@ -160,7 +157,7 @@ export function InboxPattern({
               {silentRuns.map((r) =>
                 r.events.map((e) => (
                   <li key={e.eventId}>
-                    <SourceAvatar source={e.source} />
+                    <SourceAvatar source={e.source} size={20} />
                     <span>{summarize(e)}</span>
                     <span className="muted">{relativeTime(e.receivedAt, now)}</span>
                   </li>
@@ -182,16 +179,16 @@ export function InboxPattern({
           backLabel="連絡の一覧に戻る"
         >
           {selected && (
-            <button
-              type="button"
-              className="btn btn-small"
+            <Button
+              variant="secondary"
+              size="sm"
+              icon={<MessageSquare size={14} strokeWidth={1.9} />}
               onClick={() => {
                 nav.open({ route: 'chat', sub: selected.sessionId });
               }}
             >
-              <MessageSquare size={16} aria-hidden />
-              <span className="btn-label">会話で開く</span>
-            </button>
+              会話で開く
+            </Button>
           )}
         </PaneHeader>
         {selected ? (
@@ -217,7 +214,10 @@ export function InboxPattern({
             />
           </>
         ) : (
-          <Empty title={sub && data.loaded ? 'この連絡は見つかりません' : '連絡を選んでください'} />
+          <Empty
+            title={sub && data.loaded ? 'この連絡は見つかりません' : '連絡を選んでください'}
+            icon={<Inbox size={18} strokeWidth={1.9} />}
+          />
         )}
       </section>
     </div>
