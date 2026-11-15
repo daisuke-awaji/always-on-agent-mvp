@@ -6,6 +6,8 @@ An always-on agent is not literally "always running". It sleeps most of the time
 
 ![Architecture: a client posts events through API Gateway to the Handler Lambda, which writes them to the Inbox table and sends a wake signal to an SQS FIFO queue. The Worker Lambda leases the user's inbox and invokes AgentCore Runtime, which calls Claude on Bedrock, keeps memory and sessions in S3, and sends messages to the Messages table and SNS.](docs/architecture.png)
 
+**Try the UI mock:** <https://daisuke-awaji.github.io/always-on-agent-mvp/> runs in the browser with no backend (see [`web/README.md`](web/README.md)).
+
 Thick arrows are the event flow, thin arrows are data reads and writes, and dashed arrows are failure handling and monitoring. The source is [`docs/architecture.drawio`](docs/architecture.drawio): edit it in [draw.io](https://www.drawio.com/), then export it to `docs/architecture.png` (PNG, zoom 200%, border 24, white background).
 
 ## How the article's components map to this sample
@@ -156,6 +158,10 @@ To run the same checks locally:
 ```bash
 npm ci && npm run lint && npm run format:check && npm run typecheck && npm test && npx cdk synth --quiet
 ```
+
+### GitHub Pages
+
+[`.github/workflows/pages.yml`](.github/workflows/pages.yml) builds `web/` and publishes it to <https://daisuke-awaji.github.io/always-on-agent-mvp/> on each push to `main` that touches `web/`. The mock runs on Mock Service Worker, so it never reaches AWS. The repository's `github-pages` environment decides which branches may publish.
 
 ### Lint and format
 
