@@ -124,7 +124,7 @@ function Metric({
 }
 
 function RunRow({ r, now, open, onToggle }: { r: Run; now: number; open: boolean; onToggle: () => void }) {
-  const first = r.events[0];
+  const first = r.events.at(0);
   const attempts = Math.max(...r.events.map((e) => e.attempts));
   return (
     <>
@@ -196,7 +196,7 @@ function EventDetail({ e }: { e: InboxEvent }) {
   );
 }
 
-const PRESETS: Record<string, { type: EventType; source: string; payload: string }> = {
+const PRESETS: Partial<Record<string, { type: EventType; source: string; payload: string }>> = {
   github: {
     type: 'webhook',
     source: 'github',

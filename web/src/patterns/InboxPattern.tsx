@@ -107,7 +107,7 @@ export function InboxPattern({
         <ul className="inbox-items">
           {list.map((m, i) => {
             const day = dayLabel(m.createdAt);
-            const prev = list[i - 1];
+            const prev = i > 0 ? list.at(i - 1) : undefined;
             const divider = !prev || dayLabel(prev.createdAt) !== day ? <li className="inbox-day">{day}</li> : null;
             const run = runById.get(m.runId);
             const isRead = read.has(m.messageId);

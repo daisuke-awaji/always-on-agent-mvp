@@ -2,7 +2,7 @@ import { PATTERNS } from '../ui/patterns';
 import { buildRuns, countByStatus } from '../ui/derive';
 import type { AgentData } from '../ui/useAgentData';
 
-const DETAILS: Record<string, { good: string[]; watch: string[] }> = {
+const DETAILS: Partial<Record<string, { good: string[]; watch: string[] }>> = {
   chat: {
     good: ['チャットに慣れた人がすぐ使える', '返信がそのまま session の続きになる（sessionId を意識しなくてよい）'],
     watch: ['静かに処理した通知は見えない', 'session が増えると一覧が長くなる'],
