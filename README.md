@@ -153,6 +153,16 @@ npm run agent:local                 # http://localhost:8080 (ping / invocations)
 node scripts/local-scenario.mjs     # In another terminal: 4 runs (instructions → ignorable notification → important notification + suspicious notification → session resume)
 ```
 
+### CI
+
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs `npm ci` → `npm run typecheck` → `npm test` → `cdk synth` on every push to `main` and on every pull request. The synthesized CloudFormation template is kept as an artifact (`cloudformation-template`, 7 days). It passes no AWS credentials, and both tests and synth complete without AWS access. Actions are pinned to commit SHAs, and the workflow token is limited to `contents: read`.
+
+To run the same checks locally:
+
+```bash
+npm ci && npm run typecheck && npm test && npx cdk synth --quiet
+```
+
 ### Teardown
 
 ```bash
