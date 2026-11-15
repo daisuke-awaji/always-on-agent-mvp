@@ -1,7 +1,8 @@
+import { ChevronDown } from 'lucide-react';
 import { useMemo, useState, type SyntheticEvent } from 'react';
 import { ApiError, postEvent } from '../api/client';
 import type { EventType, InboxEvent, PostEventBody } from '../api/schema';
-import { OutcomeBadge, SourceAvatar, StatusBadge } from '../ui/components';
+import { OutcomeBadge, PHONE, SourceAvatar, StatusBadge, useMediaQuery } from '../ui/components';
 import {
   buildRuns,
   clock,
@@ -49,11 +50,12 @@ export function ConsolePattern({ userId, data }: { userId: string; data: AgentDa
         <section className="runs" aria-label="run の一覧">
           <div className="runs-head">
             <h2>run</h2>
-            <div className="chips">
+            <div className="chips" role="group" aria-label="結果で絞り込む">
               {outcomes.map((o) => (
                 <button
                   key={o}
                   type="button"
+                  aria-pressed={filter === o}
                   className={`chip ${filter === o ? 'chip-active' : ''}`}
                   onClick={() => {
                     setFilter(o);
@@ -144,8 +146,12 @@ function RunRow({ r, now, open, onToggle }: { r: Run; now: number; open: boolean
           <span className="ellipsis">{first ? summarize(first) : ''}</span>
           {r.events.length > 1 && <span className="badge badge-count">+{r.events.length - 1}</span>}
         </td>
-        <td className="num">{attempts}</td>
-        <td className="num">{r.messages.length}</td>
+        <td className="num" data-label="試行">
+          {attempts}
+        </td>
+        <td className="num" data-label="送信">
+          {r.messages.length}
+        </td>
       </tr>
       {open && (
         <tr className="run-detail">
@@ -217,6 +223,10 @@ function SendForm({ userId, onSent }: { userId: string; onSent: () => void }) {
   const [payload, setPayload] = useState(PRESETS.github?.payload ?? '{}');
   const [result, setResult] = useState<{ ok: boolean; text: string }>();
   const [busy, setBusy] = useState(false);
+  // スマホでは run の一覧を先に見せたいので、フォームは折りたたんでおく（広い画面では常に開いている）
+  const [open, setOpen] = useState(false);
+  const phone = useMediaQuery(PHONE);
+  const expanded = !phone || open;
 
   const preset = (k: string) => {
     const p = PRESETS[k];
@@ -259,91 +269,113 @@ function SendForm({ userId, onSent }: { userId: string; onSent: () => void }) {
 
   return (
     <aside className="send-form" aria-label="イベントを送る">
-      <h2>イベントを送る</h2>
-      <p className="muted mono small">POST /users/{userId}/events</p>
-      <div className="chips">
-        {Object.keys(PRESETS).map((k) => (
-          <button
-            key={k}
-            type="button"
-            className="chip"
-            onClick={() => {
-              preset(k);
-            }}
-          >
-            {k}
-          </button>
-        ))}
-      </div>
-      <form onSubmit={(e) => void submit(e)}>
-        <label>
-          type
-          <select
-            value={type}
-            onChange={(e) => {
-              setType(e.target.value as EventType);
-            }}
-          >
-            <option value="webhook">webhook</option>
-            <option value="user_message">user_message</option>
-            <option value="system">system</option>
-          </select>
-        </label>
-        <label>
-          source
-          <input
-            value={source}
-            onChange={(e) => {
-              setSource(e.target.value);
-            }}
-          />
-        </label>
-        <label>
-          sourceEventId <span className="muted">（同じ値を 2 回送ると duplicate）</span>
-          <span className="input-row">
-            <input
-              value={sourceEventId}
-              onChange={(e) => {
-                setSourceEventId(e.target.value);
-              }}
-            />
-            <button
-              type="button"
-              className="btn btn-small"
-              onClick={() => {
-                setSourceEventId(`delivery-${Date.now().toString(36)}`);
-              }}
-            >
-              新しい ID
-            </button>
-          </span>
-        </label>
-        <label>
-          sessionId <span className="muted">（空なら新しい session）</span>
-          <input
-            value={sessionId}
-            onChange={(e) => {
-              setSessionId(e.target.value);
-            }}
-            placeholder="s-…"
-          />
-        </label>
-        <label>
-          payload
-          <textarea
-            value={payload}
-            onChange={(e) => {
-              setPayload(e.target.value);
-            }}
-            rows={7}
-            className="mono"
-          />
-        </label>
-        <button type="submit" className="btn btn-primary" disabled={busy}>
-          {busy ? '送信中…' : '送る'}
+      {phone ? (
+        <button
+          type="button"
+          className="send-form-toggle"
+          aria-expanded={open}
+          onClick={() => {
+            setOpen((v) => !v);
+          }}
+        >
+          <h2>イベントを送る</h2>
+          <ChevronDown size={18} className="chevron" aria-hidden />
         </button>
-      </form>
-      {result && <pre className={`send-result ${result.ok ? 'ok' : 'ng'}`}>{result.text}</pre>}
+      ) : (
+        <h2>イベントを送る</h2>
+      )}
+      {expanded && (
+        <div className="send-form-body">
+          <p className="muted mono small">POST /users/{userId}/events</p>
+          <div className="chips">
+            {Object.keys(PRESETS).map((k) => (
+              <button
+                key={k}
+                type="button"
+                className="chip"
+                onClick={() => {
+                  preset(k);
+                }}
+              >
+                {k}
+              </button>
+            ))}
+          </div>
+          <form onSubmit={(e) => void submit(e)}>
+            <label>
+              type
+              <select
+                value={type}
+                onChange={(e) => {
+                  setType(e.target.value as EventType);
+                }}
+              >
+                <option value="webhook">webhook</option>
+                <option value="user_message">user_message</option>
+                <option value="system">system</option>
+              </select>
+            </label>
+            <label>
+              source
+              <input
+                value={source}
+                onChange={(e) => {
+                  setSource(e.target.value);
+                }}
+              />
+            </label>
+            <label>
+              sourceEventId <span className="muted">（同じ値を 2 回送ると duplicate）</span>
+              <span className="input-row">
+                <input
+                  value={sourceEventId}
+                  onChange={(e) => {
+                    setSourceEventId(e.target.value);
+                  }}
+                />
+                <button
+                  type="button"
+                  className="btn btn-small"
+                  onClick={() => {
+                    setSourceEventId(`delivery-${Date.now().toString(36)}`);
+                  }}
+                >
+                  新しい ID
+                </button>
+              </span>
+            </label>
+            <label>
+              sessionId <span className="muted">（空なら新しい session）</span>
+              <input
+                value={sessionId}
+                onChange={(e) => {
+                  setSessionId(e.target.value);
+                }}
+                placeholder="s-…"
+              />
+            </label>
+            <label>
+              payload
+              <textarea
+                value={payload}
+                onChange={(e) => {
+                  setPayload(e.target.value);
+                }}
+                rows={7}
+                className="mono"
+              />
+            </label>
+            <button type="submit" className="btn btn-primary" disabled={busy}>
+              {busy ? '送信中…' : '送る'}
+            </button>
+          </form>
+          {result && (
+            <pre className={`send-result ${result.ok ? 'ok' : 'ng'}`} role="status">
+              {result.text}
+            </pre>
+          )}
+        </div>
+      )}
     </aside>
   );
 }

@@ -1,6 +1,7 @@
-import { useMemo, useState, type ReactNode } from 'react';
+import { ChevronDown, MessageSquare } from 'lucide-react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { StoredMessage } from '../api/schema';
-import { Composer, Empty, SourceAvatar, StatusBadge } from '../ui/components';
+import { Composer, Empty, PaneHeader, SourceAvatar, StatusBadge } from '../ui/components';
 import {
   buildRuns,
   buildSessions,
@@ -13,32 +14,33 @@ import {
   summarize,
   type Run,
 } from '../ui/derive';
+import { markRead, useRead } from '../ui/readState';
+import type { Navigation } from '../ui/route';
 import { useNow, type AgentData } from '../ui/useAgentData';
 
 /**
  * パターン B: 通知箱。エージェントからの連絡を受信箱として並べる。
  * それぞれの連絡に「きっかけになったイベント」（同じ runId のイベント）を添え、
  * 知らせなかった run（静かに完了）も別にまとめて見せる。
- * 既読はこの画面だけの状態（localStorage）で、API にはない。
+ * 開いている連絡は URL で持つ（#/inbox/<messageId>）。既読はこの画面だけの状態（readState.ts）。
  */
 type Filter = 'all' | 'high' | 'unread';
-const READ_KEY = 'aoa-ui:read-messages';
 
-function loadRead(): Set<string> {
-  try {
-    return new Set(JSON.parse(localStorage.getItem(READ_KEY) ?? '[]') as string[]);
-  } catch {
-    return new Set();
-  }
-}
-
-export function InboxPattern({ userId, data }: { userId: string; data: AgentData }) {
+export function InboxPattern({
+  userId,
+  data,
+  sub,
+  nav,
+}: {
+  userId: string;
+  data: AgentData;
+  sub?: string;
+  nav: Navigation;
+}) {
   const now = useNow();
   const [filter, setFilter] = useState<Filter>('all');
-  const [read, setRead] = useState(loadRead);
-  const [selectedId, setSelectedId] = useState<string>();
+  const read = useRead();
   const [showSilent, setShowSilent] = useState(false);
-  const [showListOnMobile, setShowListOnMobile] = useState(true);
 
   const runs = useMemo(() => buildRuns(data.events, data.messages), [data.events, data.messages]);
   const runById = useMemo(() => new Map(runs.map((r) => [r.runId, r])), [runs]);
@@ -47,39 +49,36 @@ export function InboxPattern({ userId, data }: { userId: string; data: AgentData
   const working = runs.filter((r) => r.outcome === 'running' || r.outcome === 'queued' || r.outcome === 'retrying');
   const failedRuns = runs.filter((r) => r.outcome === 'failed');
 
-  const markRead = (id: string) => {
-    setRead((prev) => {
-      if (prev.has(id)) return prev;
-      const next = new Set(prev).add(id);
-      localStorage.setItem(READ_KEY, JSON.stringify([...next]));
-      return next;
-    });
-  };
-
   const list = data.messages.filter((m) =>
     filter === 'high' ? m.importance === 'high' : filter === 'unread' ? !read.has(m.messageId) : true,
   );
   const unread = data.messages.filter((m) => !read.has(m.messageId)).length;
-  const selected = data.messages.find((m) => m.messageId === selectedId) ?? (selectedId ? undefined : list[0]);
+  // URL で指定がなければ一覧の先頭を見せる（広い画面のとき。スマホでは一覧だけを見せる）
+  const selected = sub ? data.messages.find((m) => m.messageId === sub) : list[0];
+
+  // 開いた連絡を既読にする（URL を直接開いたときも）
+  const openedId = sub && selected ? selected.messageId : undefined;
+  useEffect(() => {
+    if (openedId) markRead(openedId);
+  }, [openedId]);
 
   return (
-    <div className={`inbox ${showListOnMobile ? 'inbox-show-list' : 'inbox-show-detail'}`}>
-      <aside className="inbox-list" aria-label="連絡">
+    <div className="inbox split">
+      <aside className="inbox-list split-list" aria-label="連絡">
         <div className="inbox-head">
           <h2>エージェントからの連絡</h2>
-          <div className="chips" role="tablist">
+          <div className="chips" role="group" aria-label="絞り込み">
             {(
               [
-                ['all', `すべて ${data.messages.length}`],
-                ['unread', `未読 ${unread}`],
+                ['all', `すべて ${String(data.messages.length)}`],
+                ['unread', `未読 ${String(unread)}`],
                 ['high', '重要'],
               ] as const
             ).map(([f, label]) => (
               <button
                 key={f}
                 type="button"
-                role="tab"
-                aria-selected={filter === f}
+                aria-pressed={filter === f}
                 className={`chip ${filter === f ? 'chip-active' : ''}`}
                 onClick={() => {
                   setFilter(f);
@@ -111,25 +110,26 @@ export function InboxPattern({ userId, data }: { userId: string; data: AgentData
             const prev = list[i - 1];
             const divider = !prev || dayLabel(prev.createdAt) !== day ? <li className="inbox-day">{day}</li> : null;
             const run = runById.get(m.runId);
+            const isRead = read.has(m.messageId);
             return (
               <FragmentLi key={m.messageId} divider={divider}>
                 <button
                   type="button"
-                  className={`inbox-item ${selected?.messageId === m.messageId ? 'active' : ''} ${read.has(m.messageId) ? 'read' : 'unread'}`}
+                  className={`inbox-item ${selected?.messageId === m.messageId ? 'active' : ''} ${isRead ? 'read' : 'unread'}`}
                   onClick={() => {
-                    setSelectedId(m.messageId);
-                    markRead(m.messageId);
-                    setShowListOnMobile(false);
+                    nav.open({ route: 'inbox', sub: m.messageId });
                   }}
                 >
                   <span
-                    className={`dot ${m.importance === 'high' ? 'dot-high' : read.has(m.messageId) ? 'dot-none' : 'dot-unread'}`}
-                    aria-hidden
+                    className={`dot ${isRead ? 'dot-none' : 'dot-unread'}`}
+                    aria-label={isRead ? undefined : '未読'}
                   />
                   <span className="inbox-item-body">
-                    <span className="inbox-item-title">{firstLine(m.text, 70)}</span>
+                    <span className="inbox-item-title">{firstLine(m.text, 120)}</span>
                     <span className="inbox-item-meta">
-                      {triggerLabel(run)} · {relativeTime(m.createdAt, now)}
+                      {m.importance === 'high' && <span className="badge badge-high">重要</span>}
+                      <span className="ellipsis">{triggerLabel(run)}</span>
+                      <span className="nowrap">{relativeTime(m.createdAt, now)}</span>
                     </span>
                   </span>
                 </button>
@@ -153,7 +153,7 @@ export function InboxPattern({ userId, data }: { userId: string; data: AgentData
             }}
           >
             <span>知らせなかった通知 {silentRuns.reduce((n, r) => n + r.events.length, 0)} 件</span>
-            <span className="muted">{showSilent ? '閉じる' : '見る'}</span>
+            <ChevronDown size={18} className="chevron" aria-hidden />
           </button>
           {showSilent && (
             <ul className="silent-list">
@@ -172,31 +172,52 @@ export function InboxPattern({ userId, data }: { userId: string; data: AgentData
         </div>
       </aside>
 
-      <section className="inbox-detail" aria-label="連絡の詳細">
-        <button
-          type="button"
-          className="btn btn-small inbox-back"
-          onClick={() => {
-            setShowListOnMobile(true);
+      <section className="inbox-detail split-detail" aria-label="連絡の詳細">
+        <PaneHeader
+          title={selected ? (selected.importance === 'high' ? '重要な連絡' : '連絡') : '連絡'}
+          sub={selected ? `${dayLabel(selected.createdAt)} ${clock(selected.createdAt)}` : undefined}
+          onBack={() => {
+            nav.backToList('inbox');
           }}
+          backLabel="連絡の一覧に戻る"
         >
-          ← 一覧
-        </button>
+          {selected && (
+            <button
+              type="button"
+              className="btn btn-small"
+              onClick={() => {
+                nav.open({ route: 'chat', sub: selected.sessionId });
+              }}
+            >
+              <MessageSquare size={16} aria-hidden />
+              <span className="btn-label">会話で開く</span>
+            </button>
+          )}
+        </PaneHeader>
         {selected ? (
-          <Detail
-            key={selected.messageId}
-            userId={userId}
-            m={selected}
-            run={runById.get(selected.runId)}
-            followUps={
-              sessions
-                .find((s) => s.sessionId === selected.sessionId)
-                ?.items.filter((i) => i.at > selected.createdAt) ?? []
-            }
-            onSent={data.refresh}
-          />
+          <>
+            <div className="detail-scroll">
+              <Detail
+                key={selected.messageId}
+                m={selected}
+                run={runById.get(selected.runId)}
+                followUps={
+                  sessions
+                    .find((s) => s.sessionId === selected.sessionId)
+                    ?.items.filter((i) => i.at > selected.createdAt) ?? []
+                }
+              />
+            </div>
+            <Composer
+              key={selected.messageId}
+              userId={userId}
+              sessionId={selected.sessionId}
+              placeholder="この連絡に返事をする"
+              onSent={data.refresh}
+            />
+          </>
         ) : (
-          <Empty title="連絡を選んでください" />
+          <Empty title={sub && data.loaded ? 'この連絡は見つかりません' : '連絡を選んでください'} />
         )}
       </section>
     </div>
@@ -220,26 +241,16 @@ function triggerLabel(run: Run | undefined): string {
 }
 
 function Detail({
-  userId,
   m,
   run,
   followUps,
-  onSent,
 }: {
-  userId: string;
   m: StoredMessage;
   run: Run | undefined;
   followUps: ReturnType<typeof buildSessions>[number]['items'];
-  onSent: () => void;
 }) {
   return (
     <article className="detail">
-      <header className="detail-head">
-        {m.importance === 'high' && <span className="badge badge-high">重要</span>}
-        <span className="muted">
-          {dayLabel(m.createdAt)} {clock(m.createdAt)}
-        </span>
-      </header>
       <p className="detail-text">{m.text}</p>
 
       {run && (
@@ -278,10 +289,6 @@ function Detail({
           </ul>
         </section>
       )}
-
-      <div className="detail-reply">
-        <Composer userId={userId} sessionId={m.sessionId} placeholder="この連絡に返事をする" onSent={onSent} />
-      </div>
     </article>
   );
 }

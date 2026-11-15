@@ -21,6 +21,16 @@ The same data, shown three ways (`#/chat`, `#/inbox`, `#/console`):
 
 The API only returns events and sent messages. The UI rebuilds sessions and runs from `runId` and `sessionId` (`src/ui/derive.ts`).
 
+## On phones
+
+- Below 720 px the list and the item are separate screens. The open item is in the URL (`#/chat/<sessionId>`, `#/inbox/<messageId>`), so the device back gesture returns to the list and a link opens the same item.
+- The pattern switch moves to a bottom tab bar, with the unread count on 通知箱. Opening an item hides both bars, so the thread and the reply box get the full height.
+- Touch targets are at least 44 px. On touch devices inputs are 16 px, because iOS zooms into smaller ones. Safe-area insets keep content clear of the notch and the home bar, and `visualViewport` keeps the reply box above the iOS keyboard.
+- Enter adds a new line (it also confirms Japanese input). Send with the button or ⌘/Ctrl + Enter.
+- In C, each run becomes a card and the send form is folded.
+
+Checked in headless Chromium with iPhone 13, Pixel 7, and landscape emulation, plus axe. The iOS keyboard and safe areas still need a check on a real device.
+
 ## How the mock works
 
 | File | Stands in for |

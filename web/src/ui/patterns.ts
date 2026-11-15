@@ -1,4 +1,6 @@
-export type Route = 'overview' | 'chat' | 'inbox' | 'console';
+import type { Route } from './route';
+
+export type { Route };
 
 export const PATTERNS: { route: Exclude<Route, 'overview'>; letter: string; name: string; tagline: string }[] = [
   { route: 'chat', letter: 'A', name: '会話', tagline: 'session を会話のスレッドとして見せる' },

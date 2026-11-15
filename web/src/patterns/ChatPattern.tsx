@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { SquarePen } from 'lucide-react';
+import { useEffect, useMemo, useRef } from 'react';
 import type { InboxEvent } from '../api/schema';
-import { AgentAvatar, Composer, Empty, SourceAvatar, StatusBadge } from '../ui/components';
+import { AgentAvatar, Composer, Empty, PaneHeader, SourceAvatar, StatusBadge } from '../ui/components';
 import {
   buildSessions,
   clock,
@@ -15,56 +16,78 @@ import {
   type Session,
   type TimelineItem,
 } from '../ui/derive';
+import type { Navigation } from '../ui/route';
 import { useNow, type AgentData } from '../ui/useAgentData';
 
 /**
  * パターン A: 会話。session を 1 つのスレッドとして見せる。
+ * 開いている会話は URL で持つ（#/chat/<sessionId>）。スマホでは一覧と会話を切り替え、端末の「戻る」で一覧に戻れる。
  * 新しい会話の最初のメッセージは、エージェントが返事をするまで session がわからないので、
- * 「新しい会話」として仮に並べ、返事が来たら本当の session に移す。
+ * 「新しい会話」（#/chat/e:<eventId>）として仮に並べ、返事が来たら本当の session として見せる。
  */
 type Selection = { kind: 'session'; id: string } | { kind: 'draft'; eventId?: string };
 
-export function ChatPattern({ userId, data }: { userId: string; data: AgentData }) {
+const NEW = 'new';
+const DRAFT_PREFIX = 'e:';
+
+function selectionOf(sub: string | undefined): Selection | undefined {
+  if (!sub) return undefined;
+  if (sub === NEW) return { kind: 'draft' };
+  if (sub.startsWith(DRAFT_PREFIX)) return { kind: 'draft', eventId: sub.slice(DRAFT_PREFIX.length) };
+  return { kind: 'session', id: sub };
+}
+
+export function ChatPattern({
+  userId,
+  data,
+  sub,
+  nav,
+}: {
+  userId: string;
+  data: AgentData;
+  sub?: string;
+  nav: Navigation;
+}) {
   const now = useNow();
   const sessions = useMemo(() => buildSessions(data.events, data.messages), [data.events, data.messages]);
   const drafts = useMemo(() => {
     const byRun = indexByRun(data.messages);
     return data.events.filter((e) => e.type === 'user_message' && !sessionIdOf(e, byRun));
   }, [data.events, data.messages]);
-  const [sel, setSel] = useState<Selection | undefined>();
-  const [showListOnMobile, setShowListOnMobile] = useState(true);
 
-  // 仮の会話（draft）に返事が来たら、本当の session として扱う。最初は一番新しい会話を開く
+  // 仮の会話（draft）に返事が来たら、本当の session として扱う。URL で指定がなければ一番新しい会話を開く（広い画面のとき）
   const current: Selection = useMemo(() => {
+    const sel = selectionOf(sub);
     if (sel?.kind === 'draft' && sel.eventId) {
       const id = sel.eventId;
       const s = sessions.find((x) => x.items.some((i) => i.kind === 'event' && i.event.eventId === id));
       if (s) return { kind: 'session', id: s.sessionId };
     }
     return sel ?? (sessions[0] ? { kind: 'session', id: sessions[0].sessionId } : { kind: 'draft' });
-  }, [sel, sessions]);
+  }, [sub, sessions]);
 
   const session = current.kind === 'session' ? sessions.find((s) => s.sessionId === current.id) : undefined;
   const draftEvent = current.kind === 'draft' ? drafts.find((e) => e.eventId === current.eventId) : undefined;
+  const missing = current.kind === 'session' && !session && data.loaded;
 
-  const open = (s: Selection) => {
-    setSel(s);
-    setShowListOnMobile(false);
+  const open = (next: string) => {
+    nav.open({ route: 'chat', sub: next });
   };
 
   return (
-    <div className={`chat ${showListOnMobile ? 'chat-show-list' : 'chat-show-thread'}`}>
-      <aside className="chat-list" aria-label="会話">
+    <div className="chat split">
+      <aside className="chat-list split-list" aria-label="会話">
         <div className="chat-list-head">
           <h2>会話</h2>
           <button
             type="button"
-            className="btn btn-primary btn-small"
+            className="btn btn-primary btn-small new-chat"
             onClick={() => {
-              open({ kind: 'draft' });
+              open(NEW);
             }}
           >
-            ＋ 新しい会話
+            <SquarePen size={16} aria-hidden />
+            新しい会話
           </button>
         </div>
         {!data.loaded && <p className="muted pad">読み込み中…</p>}
@@ -75,7 +98,7 @@ export function ChatPattern({ userId, data }: { userId: string; data: AgentData 
                 type="button"
                 className={`chat-list-item ${current.kind === 'draft' && current.eventId === e.eventId ? 'active' : ''}`}
                 onClick={() => {
-                  open({ kind: 'draft', eventId: e.eventId });
+                  open(DRAFT_PREFIX + e.eventId);
                 }}
               >
                 <span className="chat-list-title">
@@ -95,35 +118,26 @@ export function ChatPattern({ userId, data }: { userId: string; data: AgentData 
                 active={current.kind === 'session' && current.id === s.sessionId}
                 now={now}
                 onClick={() => {
-                  open({ kind: 'session', id: s.sessionId });
+                  open(s.sessionId);
                 }}
               />
             </li>
           ))}
         </ul>
         {data.loaded && sessions.length === 0 && drafts.length === 0 && (
-          <Empty title="まだ会話がありません">右の入力欄から、エージェントへの最初のお願いを送ってください。</Empty>
+          <Empty title="まだ会話がありません">エージェントへの最初のお願いを送ってください。</Empty>
         )}
       </aside>
 
-      <section className="chat-thread" aria-label="スレッド">
-        <div className="chat-thread-head">
-          <button
-            type="button"
-            className="btn btn-small chat-back"
-            onClick={() => {
-              setShowListOnMobile(true);
-            }}
-          >
-            ← 会話
-          </button>
-          <div>
-            <h2 title={session?.sessionId}>
-              {session ? session.title : draftEvent ? summarize(draftEvent) : '新しい会話'}
-            </h2>
-            {session && <p className="muted small">最終更新 {relativeTime(session.lastAt, now)}</p>}
-          </div>
-        </div>
+      <section className="chat-thread split-detail" aria-label="スレッド">
+        <PaneHeader
+          title={session ? session.title : draftEvent ? summarize(draftEvent) : missing ? '会話' : '新しい会話'}
+          sub={session ? `最終更新 ${relativeTime(session.lastAt, now)}` : undefined}
+          onBack={() => {
+            nav.backToList('chat');
+          }}
+          backLabel="会話の一覧に戻る"
+        />
         <div className="chat-scroll">
           {session && <Thread items={session.items} busy={session.busy} />}
           {draftEvent && (
@@ -132,23 +146,26 @@ export function ChatPattern({ userId, data }: { userId: string; data: AgentData 
               busy={draftEvent.status === 'pending' || draftEvent.status === 'processing'}
             />
           )}
-          {!session && !draftEvent && (
+          {missing && <Empty title="この会話は見つかりません" />}
+          {!session && !draftEvent && !missing && (
             <Empty title="エージェントに話しかける">
               <p>お願いしたいこと、知らせてほしい条件、覚えておいてほしいことを書いてください。</p>
               <p className="muted">例: 「dmp-procurement リポジトリの通知だけ知らせてください」</p>
             </Empty>
           )}
         </div>
-        <Composer
-          key={session?.sessionId ?? 'draft'}
-          userId={userId}
-          sessionId={session?.sessionId}
-          placeholder={session ? 'この会話に返信する' : '新しい会話を始める'}
-          onSent={(res) => {
-            if (!session) setSel({ kind: 'draft', eventId: res.eventId });
-            data.refresh();
-          }}
-        />
+        {!missing && (
+          <Composer
+            key={session?.sessionId ?? 'draft'}
+            userId={userId}
+            sessionId={session?.sessionId}
+            placeholder={session ? 'この会話に返信する' : '新しい会話を始める'}
+            onSent={(res) => {
+              if (!session) nav.replace({ route: 'chat', sub: DRAFT_PREFIX + res.eventId });
+              data.refresh();
+            }}
+          />
+        )}
       </section>
     </div>
   );

@@ -30,7 +30,7 @@ export function Overview({ data }: { data: AgentData }) {
   return (
     <div className="overview">
       <section className="overview-hero">
-        <h1>常駐エージェントの画面、3 つの案</h1>
+        <h2 className="overview-title">常駐エージェントの画面、3 つの案</h2>
         <p>
           同じ API（イベントを送る・イベントの状態を見る・送られたメッセージを見る）とデータを、3
           つの見せ方で比べるためのモックです。 バックエンドはなく、ブラウザの中の Mock Service Worker が API

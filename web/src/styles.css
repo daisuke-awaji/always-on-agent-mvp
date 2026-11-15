@@ -5,19 +5,19 @@
   --line: #e4e3de;
   --line-strong: #d3d1ca;
   --text: #1f2328;
-  --text-2: #5b6069;
-  --text-3: #8a8f98;
+  --text-2: #464b53;
+  --text-3: #62676f;
   --accent: #3b5bdb;
   --accent-soft: #e8edfc;
   --pending: #5b6b84;
   --pending-soft: #eef1f6;
-  --processing: #1c7ed6;
+  --processing: #1864ab;
   --processing-soft: #e3f0fc;
-  --done: #2b8a3e;
+  --done: #26773a;
   --done-soft: #e6f4e9;
   --failed: #c92a2a;
   --failed-soft: #fdecec;
-  --high: #d9480f;
+  --high: #b33a0b;
   --high-soft: #fff1e6;
   --radius: 10px;
   --shadow: 0 1px 2px rgb(0 0 0 / 5%), 0 4px 16px rgb(0 0 0 / 4%);
@@ -100,14 +100,16 @@ textarea {
 /* ---------- アプリの枠 ---------- */
 .app {
   display: grid;
-  grid-template-rows: auto auto 1fr;
-  height: 100dvh;
+  grid-template-rows: auto auto 1fr auto;
+  /* iOS でキーボードが出たときは useVisualViewportHeight が --app-h を見えている高さにする */
+  height: var(--app-h, 100dvh);
 }
 .main {
   /* エラー表示がないときも 3 行目（1fr）に置く */
   grid-row: 3;
   min-height: 0;
   overflow: auto;
+  overscroll-behavior: contain;
 }
 .route-chat .main,
 .route-inbox .main {
@@ -160,9 +162,6 @@ textarea {
   border-bottom: 2px solid transparent;
   white-space: nowrap;
 }
-.tab:hover {
-  color: var(--text);
-}
 .tab-active {
   color: var(--text);
   font-weight: 700;
@@ -211,9 +210,6 @@ textarea {
   cursor: pointer;
   white-space: nowrap;
 }
-.btn:hover {
-  background: var(--surface-2);
-}
 .btn:disabled {
   opacity: 0.5;
   cursor: default;
@@ -223,9 +219,6 @@ textarea {
   border-color: var(--accent);
   color: #fff;
   font-weight: 600;
-}
-.btn-primary:hover {
-  background: #2f4bc0;
 }
 .btn-small {
   padding: 3px 10px;
@@ -361,9 +354,6 @@ textarea {
   cursor: pointer;
   color: var(--text-2);
 }
-.chip:hover {
-  border-color: var(--line-strong);
-}
 .chip-active {
   background: var(--text);
   border-color: var(--text);
@@ -417,61 +407,169 @@ textarea {
   background: var(--surface);
   padding: 10px 16px 12px;
 }
-.composer textarea {
-  width: 100%;
-  resize: none;
+.composer-box {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
   border: 1px solid var(--line-strong);
-  border-radius: 8px;
-  padding: 8px 10px;
+  border-radius: 20px;
+  padding: 4px 4px 4px 14px;
   background: var(--surface);
-  outline: none;
 }
-.composer textarea:focus {
+.composer-box:focus-within {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-soft);
 }
-.composer-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-top: 6px;
+.composer textarea {
+  flex: 1;
+  min-width: 0;
+  max-height: 160px;
+  resize: none;
+  border: 0;
+  padding: 5px 0;
+  background: transparent;
+  outline: none;
+  line-height: 1.5;
 }
-.composer-row .btn {
-  margin-left: auto;
+.send-btn {
+  position: relative;
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  cursor: pointer;
 }
-.hint {
-  font-size: 11px;
-  color: var(--text-3);
+.send-btn:disabled {
+  background: var(--line-strong);
+  cursor: default;
 }
 .composer-error {
   font-size: 12px;
   color: var(--failed);
+  margin: 0 4px 6px;
 }
 
-/* ---------- モック設定 ---------- */
-.mock-panel {
-  position: relative;
+/* 一覧の右（スマホでは画面いっぱい）に出る詳細の見出し */
+.pane-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 56px;
+  padding: 8px 16px 8px 20px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
 }
-.mock-popover {
-  position: absolute;
-  right: 0;
-  top: calc(100% + 8px);
-  width: 360px;
+.pane-title {
+  flex: 1;
+  min-width: 0;
+}
+.pane-sub {
+  font-size: 12px;
+  color: var(--text-3);
+}
+.pane-actions {
+  display: flex;
+  gap: 6px;
+  flex: none;
+}
+.icon-btn {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+}
+/* 広い画面では一覧が横に見えているので、戻るボタンは出さない */
+.icon-btn.pane-back {
+  display: none;
+}
+
+/* 下から出るシート（広い画面では右上に出るパネル） */
+.sheet {
+  position: fixed;
+  inset: 64px 16px auto auto;
+  margin: 0;
+  width: 380px;
   max-width: calc(100vw - 24px);
   max-height: calc(100dvh - 80px);
-  overflow: auto;
-  background: var(--surface);
+  padding: 0;
   border: 1px solid var(--line);
   border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
   box-shadow: 0 12px 40px rgb(0 0 0 / 14%);
-  padding: 14px;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.sheet::backdrop {
+  background: rgb(0 0 0 / 6%);
+}
+.sheet-inner {
+  padding: 6px 14px 16px;
+}
+.sheet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  background: var(--surface);
+  margin: 0 -14px;
+  padding: 4px 6px 4px 14px;
+  z-index: 1;
+}
+.sheet-body {
   display: grid;
   gap: 16px;
 }
-.mock-popover section {
+.sheet-body section {
   display: grid;
   gap: 8px;
 }
+
+/* スマホだけに出す下のバー */
+.bottom-nav {
+  display: none;
+}
+/* 見た目には出さず、読み上げにだけ残す */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  margin: 0;
+}
+.topbar-title {
+  display: none;
+}
+.count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- モック設定 ---------- */
 .scenario-list,
 .sample-list {
   display: grid;
@@ -509,9 +607,6 @@ textarea {
   background: var(--surface);
   cursor: pointer;
 }
-.sample:hover {
-  border-color: var(--accent);
-}
 
 /* ---------- 概要 ---------- */
 .overview {
@@ -525,7 +620,7 @@ textarea {
   display: grid;
   gap: 8px;
 }
-.overview-hero h1 {
+.overview-title {
   font-size: 22px;
 }
 .overview-hero p {
@@ -548,9 +643,6 @@ textarea {
   text-decoration: none;
   box-shadow: var(--shadow);
   transition: border-color 0.15s;
-}
-.pattern-card:hover {
-  border-color: var(--accent);
 }
 .pattern-card-head {
   display: flex;
@@ -608,6 +700,7 @@ textarea {
   border-right: 1px solid var(--line);
   background: var(--surface);
   overflow: auto;
+  overscroll-behavior: contain;
   min-height: 0;
 }
 .chat-list-head {
@@ -634,9 +727,6 @@ textarea {
   border-radius: 8px;
   padding: 9px 10px;
   cursor: pointer;
-}
-.chat-list-item:hover {
-  background: var(--surface-2);
 }
 .chat-list-item.active {
   background: var(--accent-soft);
@@ -668,24 +758,9 @@ textarea {
   min-height: 0;
   background: var(--bg);
 }
-.chat-thread-head {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 12px 20px;
-  background: var(--surface);
-  border-bottom: 1px solid var(--line);
-}
-.chat-thread-head h2 {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.chat-back {
-  display: none;
-}
 .chat-scroll {
   overflow: auto;
+  overscroll-behavior: contain;
   min-height: 0;
   display: flex;
   flex-direction: column;
@@ -839,6 +914,7 @@ textarea {
   border-right: 1px solid var(--line);
   background: var(--surface);
   overflow: auto;
+  overscroll-behavior: contain;
   min-height: 0;
   display: flex;
   flex-direction: column;
@@ -894,9 +970,6 @@ textarea {
 .inbox-item .dot {
   margin-top: 7px;
 }
-.inbox-item:hover {
-  background: var(--surface-2);
-}
 .inbox-item.active {
   background: var(--accent-soft);
   border-left-color: var(--accent);
@@ -913,6 +986,10 @@ textarea {
   color: var(--text-2);
 }
 .inbox-item-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
   font-size: 11px;
   color: var(--text-3);
 }
@@ -922,6 +999,7 @@ textarea {
 }
 .silent-toggle {
   display: flex;
+  align-items: center;
   justify-content: space-between;
   width: 100%;
   border: 0;
@@ -930,6 +1008,13 @@ textarea {
   cursor: pointer;
   font-size: 13px;
   color: var(--text-2);
+}
+.chevron {
+  color: var(--text-3);
+  transition: transform 0.15s;
+}
+[aria-expanded='true'] > .chevron {
+  transform: rotate(180deg);
 }
 .silent-list {
   list-style: none;
@@ -952,11 +1037,14 @@ textarea {
   border-radius: 5px;
 }
 .inbox-detail {
-  overflow: auto;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
   min-height: 0;
 }
-.inbox-back {
-  display: none;
+.detail-scroll {
+  overflow: auto;
+  overscroll-behavior: contain;
+  min-height: 0;
 }
 .detail {
   max-width: 720px;
@@ -964,11 +1052,6 @@ textarea {
   padding: 24px;
   display: grid;
   gap: 18px;
-}
-.detail-head {
-  display: flex;
-  gap: 8px;
-  align-items: center;
 }
 .detail-text {
   font-size: 16px;
@@ -1014,10 +1097,6 @@ textarea {
 }
 .detail-followups .fu-agent {
   border-left-color: var(--accent);
-}
-.detail-reply .composer {
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
 }
 
 /* ---------- C: 運用 ---------- */
@@ -1114,9 +1193,6 @@ textarea {
 .run-row {
   cursor: pointer;
 }
-.run-row:hover {
-  background: var(--surface-2);
-}
 .run-row.open {
   background: var(--accent-soft);
 }
@@ -1208,6 +1284,21 @@ textarea {
   position: sticky;
   top: 16px;
 }
+.send-form-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+}
+.send-form-body {
+  display: grid;
+  gap: 10px;
+}
 .send-form form {
   display: grid;
   gap: 10px;
@@ -1254,7 +1345,88 @@ textarea {
   color: var(--failed);
 }
 
-/* ---------- 狭い画面 ---------- */
+/* ---------- 操作の手ざわり ---------- */
+/* hover の色はマウスなどで指せるときだけ（タッチで押したあとに色が残らないように） */
+@media (hover: hover) {
+  .tab:hover {
+    color: var(--text);
+  }
+  .btn:hover {
+    background: var(--surface-2);
+  }
+  .btn-primary:hover {
+    background: #2f4bc0;
+  }
+  .chip:hover {
+    border-color: var(--line-strong);
+  }
+  .sample:hover {
+    border-color: var(--accent);
+  }
+  .pattern-card:hover {
+    border-color: var(--accent);
+  }
+  .chat-list-item:hover {
+    background: var(--surface-2);
+  }
+  .inbox-item:hover {
+    background: var(--surface-2);
+  }
+  .run-row:hover {
+    background: var(--surface-2);
+  }
+}
+/* タッチでは押した瞬間に色を変えて、押せたことを返す */
+.chat-list-item:active,
+.inbox-item:active,
+.run-row:active,
+.silent-toggle:active,
+.bottom-nav-item:active,
+.icon-btn:active {
+  background: var(--surface-2);
+}
+button,
+a,
+label,
+summary {
+  /* ダブルタップでの拡大を待たずに、すぐ反応させる */
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.composer textarea:focus-visible {
+  outline: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* 指で操作する端末（スマホの横向き・タブレットも）。iOS は 16px 未満の入力欄にフォーカスすると拡大するので 16px にする */
+@media (pointer: coarse) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+  .chip,
+  .btn-small {
+    min-height: 36px;
+  }
+  .btn {
+    min-height: 40px;
+  }
+}
+
+/* ---------- 中くらいの画面 ---------- */
 @media (max-width: 900px) {
   .pattern-cards {
     grid-template-columns: 1fr;
@@ -1269,54 +1441,467 @@ textarea {
     position: static;
   }
 }
+
+/* ---------- スマホ ----------
+ * 方針
+ * - パターンの切り替えは親指の届く下のバーに。上のバーはロゴ・画面名・モック設定だけ
+ * - 一覧の 1 件を開いたら、その 1 件を画面いっぱいに（上下のバーを隠す）。戻るは左上と端末の「戻る」
+ * - 押せるところは 44px 以上。入力欄は 16px（iOS がフォーカス時に拡大しないように）
+ * - ノッチやホームバーに重ならないよう safe-area を空ける
+ */
 @media (max-width: 720px) {
+  body {
+    font-size: 15px;
+  }
   .topbar {
     gap: 8px;
-    padding: 0 10px;
+    height: auto;
+    min-height: calc(52px + env(safe-area-inset-top));
+    padding: env(safe-area-inset-top) max(8px, env(safe-area-inset-right)) 0 max(12px, env(safe-area-inset-left));
   }
+  .tabs,
+  .brand-name,
   .brand-sub,
   .user-chip,
-  .hint {
+  .mock-label,
+  .mock-scenario {
     display: none;
   }
   .brand {
-    font-size: 0;
+    width: 44px;
+    height: 44px;
+    justify-content: center;
+    margin-left: -8px;
   }
   .brand-mark {
     font-size: 20px;
   }
-  .tab {
-    padding: 0 8px;
+  .topbar-title {
+    display: block;
+    font-size: 17px;
+    font-weight: 700;
   }
-  .mock-scenario {
+  .btn-mock {
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    justify-content: center;
+    border-radius: 12px;
+  }
+
+  .bottom-nav {
+    grid-row: 4;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    background: var(--surface);
+    border-top: 1px solid var(--line);
+    padding: 0 env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  }
+  .bottom-nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    min-height: 56px;
+    font-size: 11px;
+    color: var(--text-3);
+    text-decoration: none;
+  }
+  .bottom-nav-item.active {
+    color: var(--text);
+    font-weight: 700;
+  }
+  .bottom-nav-icon {
+    position: relative;
+    display: grid;
+  }
+  .count-on-icon {
+    position: absolute;
+    top: -6px;
+    left: 14px;
+    box-shadow: 0 0 0 2px var(--surface);
+  }
+
+  /* 1 件を開いているときは、その 1 件だけを画面いっぱいに */
+  .app.has-sub .topbar,
+  .app.has-sub .bottom-nav {
     display: none;
   }
-  .chat,
-  .inbox {
+  .split {
     grid-template-columns: 1fr;
   }
-  .chat-show-thread .chat-list,
-  .chat-show-list .chat-thread {
+  .app:not(.has-sub) .split-detail,
+  .app.has-sub .split-list {
     display: none;
   }
-  .chat-back {
-    display: inline-flex;
-  }
-  .inbox-show-detail .inbox-list,
-  .inbox-show-list .inbox-detail {
-    display: none;
-  }
-  .inbox-list {
+  .split-list {
     border-right: 0;
   }
-  .inbox-back {
-    display: inline-flex;
-    margin: 12px 16px 0;
+  .pane-head {
+    min-height: calc(52px + env(safe-area-inset-top));
+    padding: env(safe-area-inset-top) 12px 0 4px;
+    gap: 4px;
+  }
+  .icon-btn.pane-back {
+    display: inline-grid;
+    width: 44px;
+    height: 44px;
+  }
+  .pane-actions {
+    margin-left: 8px;
+  }
+  .pane-actions .btn {
+    min-height: 40px;
+  }
+  .composer {
+    padding: 8px max(8px, env(safe-area-inset-right)) calc(8px + env(safe-area-inset-bottom))
+      max(8px, env(safe-area-inset-left));
+  }
+  .composer-box {
+    padding-left: 16px;
+    border-radius: 22px;
+  }
+  .composer textarea {
+    padding: 7px 0;
+  }
+  .send-btn {
+    width: 36px;
+    height: 36px;
+  }
+  /* 見た目は 36px、押せる範囲は 44px */
+  .send-btn::after {
+    content: '';
+    position: absolute;
+    inset: -4px;
+  }
+  .send-form input,
+  .send-form select,
+  .send-form textarea {
+    font-size: 16px;
+  }
+  .badge {
+    font-size: 12px;
+  }
+  .chat-list-meta,
+  .chat-list-preview,
+  .inbox-item-meta,
+  .bubble-time,
+  .day-divider,
+  .event-card-meta,
+  .event-card-detail {
+    font-size: 12px;
+  }
+
+  /* 絞り込みは折り返さず横にスクロール */
+  .chips {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    margin: 0 -12px;
+    padding: 0 12px;
+  }
+  .chips::-webkit-scrollbar {
+    display: none;
+  }
+  /* 右端を薄くして、横に続きがあることを見せる */
+  .chips {
+    mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+  }
+  .chip {
+    flex: none;
+    min-height: 36px;
+    padding: 0 14px;
+    font-size: 13px;
+  }
+
+  /* A: 会話 */
+  .chat-list-head {
+    padding: 8px 12px;
+  }
+  .chat-list-head h2,
+  .inbox-head h2 {
+    display: none;
+  }
+  .new-chat {
+    flex: 1;
+    justify-content: center;
+    min-height: 44px;
+    font-size: 15px;
+  }
+  .chat-list ul {
+    padding: 0 0 12px;
+  }
+  .chat-list-item {
+    min-height: 64px;
+    padding: 10px 16px;
+    border-radius: 0;
+    border-bottom: 1px solid var(--line);
+    gap: 3px;
+  }
+  .chat-list-item.active {
+    background: transparent;
+  }
+  .thread {
+    padding: 12px 12px 16px;
+    gap: 10px;
+  }
+  .bubble {
+    max-width: 85%;
+  }
+  .bubble-text {
+    font-size: 15px;
+  }
+  .avatar {
+    width: 26px;
+    height: 26px;
+  }
+  .event-card {
+    grid-template-columns: auto 1fr;
+    padding: 8px 10px;
+  }
+  .event-card-meta {
+    grid-column: 2;
+  }
+
+  /* B: 通知箱 */
+  .inbox-head {
+    padding: 8px 12px;
+  }
+  .inbox-item {
+    min-height: 64px;
+    padding: 12px 16px 12px 13px;
+    border-bottom: 1px solid var(--line);
+  }
+  .inbox-item.active {
+    background: transparent;
+    border-left-color: transparent;
+  }
+  .inbox-item-title {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+  }
+  .inbox-day {
+    padding: 14px 16px 4px;
+  }
+  .silent-toggle {
+    min-height: 48px;
+    padding: 0 16px;
+    font-size: 14px;
+  }
+  .silent-list {
+    padding: 4px 16px 12px;
+  }
+  .silent-list li {
+    font-size: 13px;
+    padding: 6px 0;
   }
   .detail {
     padding: 16px;
+    gap: 16px;
   }
+  .detail-text {
+    padding: 14px 16px;
+  }
+
+  /* C: 運用。表は 1 run = 1 枚のカードにする */
   .console {
     padding: 12px;
+    gap: 12px;
+  }
+  .metrics {
+    gap: 8px;
+  }
+  .metric {
+    padding: 8px 10px;
+    align-content: start;
+  }
+  .metric-label {
+    font-size: 11px;
+    line-height: 1.35;
+  }
+  .metric-value {
+    font-size: 18px;
+  }
+  .runs-head {
+    padding: 10px 12px;
+  }
+  .runs-table,
+  .runs-table tbody {
+    display: block;
+  }
+  .runs-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+  .runs-table tr.run-row {
+    display: grid;
+    grid-template-columns: max-content 1fr auto;
+    grid-template-areas:
+      'time time outcome'
+      'events events events'
+      'attempts sends sends';
+    gap: 4px 8px;
+    padding: 12px;
+    border-bottom: 1px solid var(--line);
+  }
+  .runs-table tr.run-row td {
+    padding: 0;
+    border: 0;
+  }
+  /* カード全体を「詳細」ボタンの押せる範囲にする（ボタンはキーボードと読み上げのために残す） */
+  .runs-table tr.run-row {
+    position: relative;
+  }
+  .row-toggle::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+  }
+  .run-row td:nth-child(1) {
+    grid-area: time;
+  }
+  .run-row td:nth-child(2) {
+    grid-area: outcome;
+  }
+  .run-row td:nth-child(3) {
+    grid-area: events;
+  }
+  .run-row td:nth-child(4) {
+    grid-area: attempts;
+  }
+  .run-row td.num {
+    text-align: left;
+    font-size: 12px;
+    color: var(--text-3);
+  }
+  .run-row td.num::before {
+    content: attr(data-label) ' ';
+  }
+  .run-row td:nth-child(5) {
+    grid-area: sends;
+    margin-left: 12px;
+  }
+  .run-failed td:first-child {
+    box-shadow: none;
+  }
+  .run-failed {
+    box-shadow: inset 3px 0 0 var(--failed);
+  }
+  .run-events {
+    min-width: 0;
+    max-width: none;
+  }
+  .runs-table tr.run-detail,
+  .runs-table tr.run-detail td {
+    display: block;
+  }
+  .run-detail td {
+    padding: 12px;
+  }
+  .payload {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+  .send-form {
+    padding: 0;
+    gap: 0;
+  }
+  .send-form-toggle {
+    min-height: 52px;
+    padding: 0 14px;
+  }
+  .send-form-body {
+    padding: 0 14px 14px;
+  }
+
+  /* 概要 */
+  .overview {
+    padding: 20px 16px 32px;
+    gap: 16px;
+  }
+
+  /* 下から出るシート */
+  .sheet {
+    inset: auto 0 0;
+    width: 100%;
+    max-width: 100%;
+    max-height: 88dvh;
+    border: 0;
+    border-radius: 16px 16px 0 0;
+    animation: sheet-up 0.2s ease-out;
+  }
+  .sheet::backdrop {
+    background: rgb(0 0 0 / 32%);
+  }
+  .sheet-inner {
+    padding: 0 16px calc(16px + env(safe-area-inset-bottom));
+  }
+  .sheet-head {
+    margin: 0 -16px;
+    padding: 14px 8px 6px 16px;
+  }
+  /* つまみ（下に引けそうに見えるだけで、閉じるのは右上・背景・戻る） */
+  .sheet-head::before {
+    content: '';
+    position: absolute;
+    top: 6px;
+    left: 50%;
+    width: 36px;
+    height: 4px;
+    margin-left: -18px;
+    border-radius: 2px;
+    background: var(--line-strong);
+  }
+  .scenario,
+  .sample {
+    min-height: 52px;
+    padding: 10px 12px;
+  }
+  .sheet .btn-small {
+    min-height: 44px;
+    font-size: 14px;
+  }
+
+  .toast {
+    bottom: calc(68px + env(safe-area-inset-bottom));
+  }
+  .app.has-sub .toast {
+    bottom: calc(76px + env(safe-area-inset-bottom));
+  }
+}
+
+@keyframes sheet-up {
+  from {
+    transform: translateY(24px);
+    opacity: 0;
+  }
+}
+
+/* ---------- 横向きのスマホ（高さが低い） ---------- */
+@media (min-width: 721px) and (max-height: 500px) and (pointer: coarse) {
+  .topbar {
+    height: 44px;
+  }
+  .pane-head {
+    min-height: 44px;
+    padding-top: 4px;
+    padding-bottom: 4px;
+  }
+  .composer {
+    padding-top: 6px;
+    padding-bottom: calc(6px + env(safe-area-inset-bottom));
+  }
+  .composer textarea {
+    max-height: 72px;
+  }
+  .chat-list,
+  .inbox-list {
+    padding-left: env(safe-area-inset-left);
   }
 }
