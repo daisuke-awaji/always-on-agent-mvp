@@ -1,24 +1,45 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 /**
- * 画面の場所。sub は開いている会話（sessionId、仮の会話の e:<eventId>、新しい会話の new）。
- * sub がなければ会話の一覧。
+ * 画面の場所。view は画面（なければ会話）、sub はその画面で開いているもの:
+ *   会話     #/chat/<sessionId>      sessionId、仮の会話の e:<eventId>、新しい会話の new
+ *   タイマー #/timers/<timerId>      new は新しいタイマー
+ *   メモリ   #/memory/<path>         notes/family.md など（/ はそのまま）
+ * sub がなければ、その画面の一覧。
  */
+export type View = 'timers' | 'memory';
+
 export interface Location {
+  view?: View;
   sub?: string;
 }
 
+const VIEWS: readonly View[] = ['timers', 'memory'];
+
 /**
- * `#/chat/s-123` → { sub: 's-123' }。`#/`、`#/chat`、知らない場所は一覧にする。
- * 前にあった `#/inbox/…` や `#/console` のリンクも、壊れずに一覧が開く。
+ * `#/chat/s-123` → { sub: 's-123' }、`#/timers/t-1` → { view: 'timers', sub: 't-1' }。
+ * `#/`、`#/chat`、知らない場所は会話の一覧にする。前にあった `#/inbox/…` や `#/console` のリンクも、壊れずに一覧が開く。
  */
 export function parseHash(hash: string): Location {
   const [head = '', ...rest] = hash.replace(/^#\/?/, '').split('/');
-  const sub = head === 'chat' ? rest.join('/') : '';
-  return sub ? { sub: decodeURIComponent(sub) } : {};
+  const sub = rest.filter(Boolean).map(safeDecode).join('/');
+  const view = VIEWS.find((v) => v === head);
+  if (view) return sub ? { view, sub } : { view };
+  return head === 'chat' && sub ? { sub } : {};
 }
 
-export function toHash({ sub }: Location): string {
+function safeDecode(s: string): string {
+  try {
+    return decodeURIComponent(s);
+  } catch {
+    return s;
+  }
+}
+
+export function toHash({ view, sub }: Location): string {
+  // メモリのパスは / を区切りのまま残す（アドレスバーで読める）。会話とタイマーの ID は 1 つの部分にする
+  if (view === 'memory') return sub ? `#/memory/${sub.split('/').map(encodeURIComponent).join('/')}` : '#/memory';
+  if (view) return sub ? `#/${view}/${encodeURIComponent(sub)}` : `#/${view}`;
   return sub ? `#/chat/${encodeURIComponent(sub)}` : '#/';
 }
 
@@ -33,12 +54,17 @@ interface HistoryMark {
  */
 export function useLocation() {
   const [loc, setLoc] = useState<Location>(() => parseHash(window.location.hash));
+  // コールバック（backToList / go）から今の場所を読むため。描画が終わってから合わせる
+  const current = useRef(loc);
+  useEffect(() => {
+    current.current = loc;
+  }, [loc]);
 
   useEffect(() => {
     const on = () => {
       const next = parseHash(window.location.hash);
       // 前にあった画面（#/inbox/… など）や知らない場所は、アドレスバーも一覧（#/）に直す
-      if (window.location.hash && !next.sub && window.location.hash !== toHash(next)) {
+      if (window.location.hash && !next.sub && !next.view && window.location.hash !== toHash(next)) {
         window.history.replaceState(window.history.state, '', toHash(next));
       }
       setLoc(next);
@@ -65,17 +91,26 @@ export function useLocation() {
     setLoc(next);
   }, []);
 
-  /** 会話から一覧へ戻る。一覧から来たなら履歴を戻し、URL を直接開いたなら一覧に置き換える */
+  /** 開いているものから、同じ画面の一覧へ戻る。一覧から来たなら履歴を戻し、URL を直接開いたなら一覧に置き換える */
   const backToList = useCallback(() => {
     if ((window.history.state as HistoryMark | null)?.fromList) {
       window.history.back();
     } else {
-      window.history.replaceState(null, '', toHash({}));
-      setLoc({});
+      const list: Location = current.current.view ? { view: current.current.view } : {};
+      window.history.replaceState(null, '', toHash(list));
+      setLoc(list);
     }
   }, []);
 
-  return { loc, open, replace, backToList };
+  /** 画面を切り替える（会話 / タイマー / メモリ）。履歴に積むので、「戻る」で前の画面に戻れる */
+  const go = useCallback((view: View | undefined) => {
+    const next: Location = view ? { view } : {};
+    if (toHash(next) === toHash(current.current)) return;
+    window.history.pushState(null, '', toHash(next));
+    setLoc(next);
+  }, []);
+
+  return { loc, open, replace, backToList, go };
 }
 
 export type Navigation = Omit<ReturnType<typeof useLocation>, 'loc'>;

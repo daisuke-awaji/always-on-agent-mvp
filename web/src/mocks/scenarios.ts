@@ -1,6 +1,7 @@
-import type { EventType, InboxEvent, StoredMessage } from '../api/schema';
+import type { EventType, InboxEvent, StoredMessage, Timer } from '../api/schema';
 import { ymd } from '../ui/payloads';
 import { think } from './brain';
+import { applyEffects, makeTimer, refreshTimer, writeEntry, type MemoryTable, type TimerInput } from './records';
 
 export type ScenarioId = 'standard' | 'empty' | 'trouble';
 
@@ -49,6 +50,8 @@ interface Seed {
   events: InboxEvent[];
   messages: StoredMessage[];
   dedupe: Record<string, string>;
+  timers: Timer[];
+  memory: MemoryTable;
 }
 
 interface SeedEvent {
@@ -69,7 +72,7 @@ function idFactory(prefix: number) {
 }
 
 export function seedFor(id: ScenarioId, now: Date): Seed {
-  const seed: Seed = { events: [], messages: [], dedupe: {} };
+  const seed: Seed = { events: [], messages: [], dedupe: {}, timers: [], memory: {} };
   if (id === 'empty') return seed;
   const nextId = idFactory(id === 'standard' ? 1 : 2);
   const at = (minutesAgo: number) => new Date(now.getTime() - minutesAgo * 60_000);
@@ -108,7 +111,10 @@ export function seedFor(id: ScenarioId, now: Date): Seed {
     });
     seed.events.push(...evs);
     if (!opts.fail) {
-      think(evs).messages.forEach((m, i) => {
+      const out = think(evs);
+      // run の中でエージェントが書いたメモリと、作ったタイマー
+      applyEffects(seed, DEMO_USER, sessionId, out.effects, new Date(receivedAt.getTime() + 30_000), nextId);
+      out.messages.forEach((m, i) => {
         seed.messages.push({
           messageId: nextId(),
           userId: DEMO_USER,
@@ -155,8 +161,32 @@ export function seedFor(id: ScenarioId, now: Date): Seed {
     return d.toISOString();
   };
 
+  /** タイマーを置く。schedule は「今」から数えた次の回にそろえる（作った時刻はそのまま） */
+  const timer = (input: Omit<TimerInput, 'userId'>, createdMinutesAgo: number, patch: Partial<Timer> = {}) => {
+    const t = makeTimer({ ...input, userId: DEMO_USER }, at(createdMinutesAgo), nextId());
+    if (t.kind === 'schedule') refreshTimer(t, now);
+    Object.assign(t, { updatedAt: t.createdAt }, patch);
+    seed.timers.push(t);
+    return t;
+  };
+  /** タイマーで起きた run（scheduler が inbox に入れる system イベント） */
+  const fired = (t: Timer, minutesAgo: number, sessionId?: string) =>
+    run(
+      minutesAgo,
+      [
+        {
+          type: 'system',
+          source: 'scheduler',
+          sourceEventId: `timer:${t.timerId}:${at(minutesAgo).toISOString()}`,
+          payload: { timerId: t.timerId, kind: t.kind, title: t.title, note: t.note },
+        },
+      ],
+      { sessionId },
+    );
+
   // 小学 3 年の子どもがいる共働きの家庭。学校、支払いと手続き、宅配の通知がつながっている
-  const s1 = run(clock(2, 21, 10), [
+  const first = clock(2, 21, 10);
+  const s1 = run(first, [
     user(
       'こんにちは。小学3年の娘がいる共働きの家庭です。学校の提出物と、支払いの期限が近いものは早めに知らせてください。配送は、届く日と不在のときだけで大丈夫です。',
     ),
@@ -165,7 +195,7 @@ export function seedFor(id: ScenarioId, now: Date): Seed {
     hook('delivery', 'yamato-5501', { carrier: 'ヤマト運輸', status: 'shipped', item: '子ども用の長靴' }),
   ]);
   const ensoku = clock(1, 16, 5);
-  run(ensoku, [
+  const ensokuSession = run(ensoku, [
     hook('school', 'notice-2041', {
       title: '遠足のお知らせ',
       body: '参加票に記入して担任へ',
@@ -203,7 +233,19 @@ export function seedFor(id: ScenarioId, now: Date): Seed {
     }),
     hook('shop', 'coop-3310', { kind: 'order', shop: '生協', item: '牛乳ほか 12 点' }),
   ]);
-  run(clock(0, 7, 0), [{ type: 'system', source: 'scheduler', payload: { kind: 'daily_check' } }]);
+  // 最初のお願いを受けて、エージェントが作った毎朝のチェック。今朝も動いた（知らせることがなかったので黙っていた）
+  const morning = timer(
+    {
+      kind: 'schedule',
+      title: '朝のチェック',
+      note: 'その日が期限のもの、届く荷物、家族の予定を確かめる。知らせることがなければ黙っている',
+      recurrence: { freq: 'daily', time: '07:00' },
+      createdBy: 'agent',
+    },
+    first - 1,
+    { lastFiredAt: at(clock(0, 7, 0)).toISOString() },
+  );
+  fired(morning, clock(0, 7, 0));
   const bills = clock(0, 12, 30);
   run(bills, [
     hook('bills', 'bill-0921', {
@@ -232,6 +274,46 @@ export function seedFor(id: ScenarioId, now: Date): Seed {
       due: dayAfter(coop, 1),
     }),
   ]);
+
+  // あなたが画面から作った繰り返し
+  timer(
+    {
+      kind: 'schedule',
+      title: '週末の予定のまとめ',
+      note: '来週の学校の行事と持ち物、支払いの期限をまとめて送る',
+      recurrence: { freq: 'weekly', time: '20:00', weekdays: [5] },
+      createdBy: 'user',
+    },
+    clock(1, 21, 0),
+  );
+  // 遠足のお知らせを受けて、エージェントがその日の夜に確かめた follow-up（もう終わった）
+  const askAt = clock(1, 20, 0);
+  const ask = timer(
+    {
+      kind: 'followup',
+      title: '遠足の参加票の確認',
+      note: '締切は明日。水筒・敷物・雨具も',
+      dueAt: at(askAt).toISOString(),
+      createdBy: 'agent',
+      sessionId: ensokuSession,
+    },
+    ensoku - 1,
+    { status: 'done', lastFiredAt: at(askAt).toISOString(), updatedAt: at(askAt).toISOString() },
+  );
+  fired(ask, askAt, ensokuSession);
+  // 発送の連絡で作ったが、今日届くとわかったので、あなたが取り消した follow-up
+  timer(
+    {
+      kind: 'followup',
+      title: '長靴が届いたかの確認',
+      dueAt: at(clock(0, 8, 10) - 24 * 60).toISOString(),
+      createdBy: 'agent',
+    },
+    clock(1, 7, 40) - 1,
+    { status: 'cancelled', updatedAt: at(clock(0, 8, 10) - 5).toISOString() },
+  );
+
+  seedMemory(seed.memory, { first: at(first), long: at(60 * 24 * 70), ask: at(askAt) });
 
   if (id === 'trouble') {
     run(
@@ -270,4 +352,77 @@ export function seedFor(id: ScenarioId, now: Date): Seed {
     sk: `EVT#${r}#${eventId}`,
   });
   return seed;
+}
+
+/**
+ * デモのメモリ。エージェントが run の中で書いたもの（instructions.md と tasks/ の車検）に、
+ * 前から持っているメモを足す。notes/swimming.md は古いメモ（9 月でやめた水泳教室）で、画面から消す例に使う。
+ */
+function seedMemory(memory: MemoryTable, t: { first: Date; long: Date; ask: Date }) {
+  const w = (path: string, content: string, at: Date) => writeEntry(memory, DEMO_USER, path, content, 'agent', at);
+  w(
+    'instructions.md',
+    `# あなたからの指示
+
+- 学校の提出物と、支払いの期限が近いものは早めに知らせる
+- 配送は、届く日と不在のときだけ知らせる。発送や配達完了は知らせない
+- 朝 7 時に、その日が期限のものを確かめる。知らせることがなければ黙っている
+`,
+    t.first,
+  );
+  w(
+    'notes/index.md',
+    `# あなたについてのメモ
+
+- [家族](family.md): 共働き。小学3年の娘。週末の送迎は夫
+- [いつもの支払い](payments.md): カードの利用額の目安
+- [水泳教室](swimming.md): 毎週木曜の送迎と月謝
+`,
+    t.first,
+  );
+  w(
+    'notes/family.md',
+    `# 家族
+
+- 共働き。平日の日中は二人とも連絡がつきにくい
+- 娘: 小学3年。学校からの連絡は学校連絡アプリで届く
+- 週末の少年サッカーの送迎は夫が担当（家族カレンダーに入る）
+- 荷物は平日 19 時以降なら受け取れる
+`,
+    t.first,
+  );
+  w(
+    'notes/payments.md',
+    `# いつもの支払い
+
+カードの利用額の目安。これより大きく違うときだけ知らせる。
+
+- スーパーまるやま: 1 回 5,000 円前後
+- 携帯電話料金: 毎月 7,800 円前後
+- 生協: 毎週、牛乳と野菜セット
+`,
+    t.first,
+  );
+  w(
+    'notes/swimming.md',
+    `# 水泳教室
+
+- 毎週木曜 17:00 にスイミングスクールへ送迎
+- 月謝 7,700 円（口座振替、毎月 27 日）
+`,
+    t.long,
+  );
+  // tasks/index.md は車検のタスク（run の中で書いた）に、遠足を足す
+  const tasks = memory[DEMO_USER]?.['tasks/index.md']?.content ?? '# 続いているタスク\n\n';
+  w('tasks/index.md', `${tasks}- [遠足の参加票](ensoku.md): 提出は明日まで。前の夜に確かめた\n`, t.ask);
+  w(
+    'tasks/ensoku.md',
+    `# 遠足の参加票
+
+- 学校連絡「遠足のお知らせ」: 参加票に記入して担任へ。持ち物は水筒、敷物、雨具
+- 済んだこと: お知らせを伝えた。前の夜に書いたか確かめた
+- 残り: 提出の日の朝に、持ち物と一緒にもう一度伝える
+`,
+    t.ask,
+  );
 }

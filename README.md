@@ -6,7 +6,7 @@ An always-on agent is not literally "always running". It sleeps most of the time
 
 ![Architecture: a client posts events through API Gateway to the Handler Lambda, which writes them to the Inbox table and sends a wake signal to an SQS FIFO queue. The Worker Lambda leases the user's inbox and invokes AgentCore Runtime, which calls Claude on Bedrock, keeps memory and sessions in S3, and sends messages to the Messages table and SNS.](docs/architecture.png)
 
-**Try the UI mock:** <https://daisuke-awaji.github.io/always-on-agent-mvp/> runs in the browser with no backend (see [`web/README.md`](web/README.md)).
+**Try the UI mock:** <https://daisuke-awaji.github.io/always-on-agent-mvp/> runs in the browser with no backend (see [`web/README.md`](web/README.md)). It also has screens for timers and memory, with the API they would use, ahead of the backend.
 
 Thick arrows are the event flow, thin arrows are data reads and writes, and dashed arrows are failure handling and monitoring. The source is [`docs/architecture.drawio`](docs/architecture.drawio): edit it in [draw.io](https://www.drawio.com/), then export it to `docs/architecture.png` (PNG, zoom 200%, border 24, white background).
 
@@ -199,7 +199,7 @@ npx cdk destroy
 
 | Stage | Additions | AWS |
 |---|---|---|
-| Make the agent proactive (Timers) | `set_followup` / `create_schedule` tools, Timers table | EventBridge Scheduler (`at()` / `cron()`) → handler |
+| Make the agent proactive (Timers) | `set_followup` / `create_schedule` tools, Timers table, the timer and memory API the UI mock defines ([`web/README.md`](web/README.md)) | EventBridge Scheduler (`at()` / `cron()`) → handler |
 | Safety (Permissions) | Gateway-only access, credential injection, Cedar policies, risk classifier, deferred tool calls (approval flow) | AgentCore Gateway / Identity / Policy, Bedrock Guardrails |
 | Mature operations (Outbox) | Outbox table + dispatcher (pacing, retries, digests), dreaming, evals for notification volume | DynamoDB Streams, AgentCore Memory / Evaluations / Observability |
 

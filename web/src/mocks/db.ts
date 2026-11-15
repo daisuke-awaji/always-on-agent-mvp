@@ -1,20 +1,23 @@
-import type { EventType, InboxEvent, StoredMessage } from '../api/schema';
+import type { EventType, InboxEvent, StoredMessage, Timer } from '../api/schema';
+import { writeEntry, type MemoryTable } from './records';
 import { seedFor, type ScenarioId } from './scenarios';
 
 /**
- * モックのデータ置き場。実際の構成の InboxTable と MessagesTable の代わり。
- * ブラウザの localStorage に保存するので、再読み込みしても残る。
+ * モックのデータ置き場。実際の構成の InboxTable、MessagesTable、Timers テーブル（これから足す）、
+ * S3 の memory/<userId>/ の代わり。ブラウザの localStorage に保存するので、再読み込みしても残る。
  */
 export interface MockState {
-  version: 1;
+  version: 2;
   scenario: ScenarioId;
   events: InboxEvent[];
   messages: StoredMessage[];
   /** `${userId}|${source}|${sourceEventId}` → eventId（実際の構成の重複排除アイテム） */
   dedupe: Record<string, string>;
+  timers: Timer[];
+  memory: MemoryTable;
 }
 
-const STORAGE_KEY = 'aoa-mock:v1';
+const STORAGE_KEY = 'aoa-mock:v2';
 let state: MockState | undefined;
 const listeners = new Set<() => void>();
 
@@ -28,12 +31,14 @@ function storage(): Storage | undefined {
 
 export function getState(): MockState {
   if (!state) {
+    // 前の形（v1: タイマーとメモリがない）は読まずに捨てる
+    storage()?.removeItem('aoa-mock:v1');
     const raw = storage()?.getItem(STORAGE_KEY);
     if (raw) {
       try {
         const parsed = JSON.parse(raw) as Partial<MockState> | null;
         // 形が変わったら（version が違えば）捨てて作り直す
-        if (parsed?.version === 1) state = parsed as MockState;
+        if (parsed?.version === 2) state = parsed as MockState;
       } catch {
         /* 壊れていたら作り直す */
       }
@@ -45,7 +50,7 @@ export function getState(): MockState {
 
 function freshState(scenario: ScenarioId): MockState {
   const seed = seedFor(scenario, new Date());
-  return { version: 1, scenario, events: seed.events, messages: seed.messages, dedupe: seed.dedupe };
+  return { version: 2, scenario, ...seed };
 }
 
 export function save(): void {
@@ -128,4 +133,16 @@ export function openEvents(userId: string): InboxEvent[] {
 export function usersWithOpenEvents(): string[] {
   const s = getState();
   return [...new Set(s.events.filter((e) => e.status === 'pending' || e.status === 'processing').map((e) => e.userId))];
+}
+
+/**
+ * モック設定から: エージェントが instructions.md に 1 行足す（run の中で書き換えた、の代わり）。
+ * 画面で編集しているあいだに版が変わるので、保存すると 409 になる
+ */
+export function agentTouchesMemory(userId: string, now = new Date()): void {
+  const prev = getState().memory[userId]?.['instructions.md']?.content ?? '# あなたからの指示\n\n';
+  const sep = prev.endsWith('\n') ? '' : '\n';
+  const line = '- 夜 21 時以降は、急ぎのもの以外は翌朝にまとめて知らせる';
+  writeEntry(getState().memory, userId, 'instructions.md', `${prev}${sep}${line}\n`, 'agent', now);
+  save();
 }

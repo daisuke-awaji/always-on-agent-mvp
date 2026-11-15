@@ -1,6 +1,7 @@
-import type { InboxEvent } from '../api/schema';
+import type { InboxEvent, Timer } from '../api/schema';
 import { think } from './brain';
-import { getState, openEvents, save, usersWithOpenEvents } from './db';
+import { appendEvent, getState, openEvents, save, usersWithOpenEvents } from './db';
+import { applyEffects, refreshTimer } from './records';
 import { SCENARIOS } from './scenarios';
 
 /**
@@ -102,7 +103,8 @@ async function executeRun(userId: string, batch: Batch): Promise<void> {
     return;
   }
 
-  const { messages } = think(events);
+  const { messages, effects } = think(events);
+  applyEffects(getState(), userId, batch.sessionId, effects, new Date());
   messages.forEach((m, i) => {
     getState().messages.push({
       messageId: crypto.randomUUID(),
@@ -120,4 +122,65 @@ async function executeRun(userId: string, batch: Batch): Promise<void> {
     delete e.lastError;
   }
   save();
+}
+
+// ---- スケジューラ（実際の構成では EventBridge Scheduler） ----
+//
+// 記事の scheduler と同じ流れ: 時刻が来たタイマーを探す → follow-up は done、schedule は次の回に進める
+// → inbox に system イベント（source: scheduler）を入れて worker を起こす。
+// 画面を閉じていたあいだに何回分も過ぎていても、動かすのは 1 回だけ（次の回は今より後から数える）。
+
+const TICK_MS = 3000;
+let ticking: ReturnType<typeof setInterval> | undefined;
+
+export function startScheduler(): void {
+  if (ticking) return;
+  tick();
+  ticking = setInterval(tick, TICK_MS);
+}
+
+/** 時刻が来たタイマーをすべて動かす。動かしたユーザーを返す */
+export function tick(now = new Date()): string[] {
+  const due = getState().timers.filter((t) => t.status === 'active' && Date.parse(t.dueAt) <= now.getTime());
+  for (const t of due) fire(t, now, false);
+  const users = [...new Set(due.map((t) => t.userId))];
+  if (due.length > 0) save();
+  for (const u of users) wake(u);
+  return users;
+}
+
+/** モック設定の「今すぐ動かす」。schedule は次の回をずらさない（予定外にもう 1 回動かすだけ） */
+export function fireNow(timerId: string, now = new Date()): boolean {
+  const t = getState().timers.find((x) => x.timerId === timerId && x.status === 'active');
+  if (!t) return false;
+  fire(t, now, true);
+  save();
+  wake(t.userId);
+  return true;
+}
+
+function fire(t: Timer, now: Date, extra: boolean): void {
+  // sourceEventId はタイマーと回ごとに決まる値にする。scheduler が同じ回を 2 回入れても、inbox の重複排除で 1 回になる
+  const occurrence = extra ? `manual-${now.toISOString()}` : t.dueAt;
+  appendEvent(
+    {
+      userId: t.userId,
+      type: 'system',
+      source: 'scheduler',
+      sourceEventId: `timer:${t.timerId}:${occurrence}`,
+      sessionId: t.kind === 'followup' ? t.sessionId : undefined,
+      payload: { timerId: t.timerId, kind: t.kind, title: t.title, note: t.note },
+    },
+    now,
+  );
+  t.lastFiredAt = now.toISOString();
+  if (t.kind === 'followup') {
+    t.status = 'done';
+    t.updatedAt = now.toISOString();
+  } else if (!extra) {
+    // 次の回に進める（今より後で、いちばん近い回）
+    refreshTimer(t, now);
+  } else {
+    t.updatedAt = now.toISOString();
+  }
 }

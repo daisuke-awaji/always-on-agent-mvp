@@ -267,6 +267,234 @@ textarea {
   display: grid;
   gap: 8px;
 }
+/* ---------- 画面の切り替え ---------- */
+/* 広い画面: 上のバーのタブ。スマホでは隠して、下のタブバー（.tabbar）にする */
+.topnav {
+  display: flex;
+  align-items: stretch;
+  align-self: stretch;
+  gap: 4px;
+}
+.topnav a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
+  text-decoration: none;
+  color: var(--text-2);
+  font-weight: 500;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+.topnav a[aria-current='page'] {
+  color: var(--text);
+  font-weight: 700;
+  border-bottom-color: var(--accent);
+}
+@media (hover: hover) {
+  .topnav a:hover {
+    color: var(--text);
+  }
+}
+.nav-count {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+.tabbar {
+  display: none;
+}
+/* ---------- 一覧と詳細（タイマー・メモリ） ---------- */
+.list-section {
+  padding: 4px 0 8px;
+}
+.list-section-title {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 8px 18px 4px;
+}
+.list-section-count {
+  font-weight: 500;
+  color: var(--text-3);
+}
+.list-section-desc,
+.list-section-empty {
+  font-size: 12px;
+  color: var(--text-3);
+  padding: 0 18px 6px;
+}
+.list-usage {
+  font-size: 12px;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+}
+.chat-list-item.ended .chat-list-title {
+  color: var(--text-2);
+}
+.mono-name {
+  font-family: var(--mono);
+  font-size: 0.93em;
+}
+.pane-scroll {
+  overflow: auto;
+  overscroll-behavior: contain;
+  min-height: 0;
+  grid-row: 2 / 4;
+}
+.pane-body {
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 20px 24px 32px;
+  display: grid;
+  gap: 16px;
+  align-content: start;
+}
+.muted {
+  color: var(--text-3);
+}
+.intro p {
+  max-width: 60ch;
+}
+.intro-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+.intro-card {
+  background: var(--surface);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 14px 16px;
+  display: grid;
+  gap: 6px;
+  align-content: start;
+}
+.intro-card h3 {
+  font-size: 13px;
+  color: var(--text);
+}
+.intro-card p {
+  font-size: 13px;
+  color: var(--text-2);
+}
+.next-card {
+  background: var(--surface);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 14px 16px;
+  display: grid;
+  gap: 4px;
+  justify-items: start;
+}
+.next-when {
+  font-size: 22px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.facts {
+  margin: 0;
+  display: grid;
+  background: var(--surface);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+.fact {
+  display: grid;
+  grid-template-columns: 160px 1fr;
+  gap: 12px;
+  padding: 10px 16px;
+}
+.fact + .fact {
+  border-top: 1px solid var(--line);
+}
+.fact dt {
+  color: var(--text-3);
+  font-size: 13px;
+}
+.fact dd {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.mono {
+  font-family: var(--mono);
+  font-size: 12px;
+}
+.memory-text {
+  margin: 0;
+  padding: 16px 18px;
+  background: var(--surface);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.memory-editor {
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 1.7;
+}
+/* ---------- フォーム ---------- */
+.form {
+  display: grid;
+  gap: 16px;
+}
+.form-row {
+  display: grid;
+  gap: 6px;
+  justify-items: start;
+}
+.form-label {
+  font-size: 13px;
+  font-weight: 500;
+}
+.form-grid {
+  display: grid;
+  /* 日付と時刻は中身の長さに合わせた幅にする（横いっぱいに伸ばさない） */
+  grid-template-columns: repeat(auto-fill, minmax(160px, 220px));
+  gap: 12px;
+}
+.form-preview {
+  font-size: 13px;
+  color: var(--text-2);
+}
+.form-preview.problem,
+.form-error {
+  color: var(--failed);
+  font-size: 13px;
+}
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.notice {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  box-shadow: inset 0 0 0 1px var(--line-strong);
+}
+.form-field {
+  display: grid;
+  gap: 6px;
+}
+.form-hint {
+  font-size: 12px;
+  color: var(--text-3);
+}
+.mock-note {
+  font-size: 12px;
+  color: var(--text-3);
+}
 /* ---------- 会話 ---------- */
 .chat {
   display: grid;
@@ -480,6 +708,10 @@ textarea {
   .chat-list-item:hover {
     background: var(--surface-2);
   }
+  /* 灰色の背景の上でも読める濃さにする */
+  .chat-list-item:hover .chat-list-time {
+    color: var(--text-2);
+  }
 }
 /* タッチでは押した瞬間に色を変えて、押せたことを返す */
 .chat-list-item:active {
@@ -511,7 +743,8 @@ summary {
 }
 /* 指で操作する端末（スマホの横向き・タブレットも）。iOS は 16px 未満の入力欄にフォーカスすると拡大するので 16px にする */
 @media (pointer: coarse) {
-  .composer textarea {
+  .composer textarea,
+  .memory-editor {
     font-size: 16px;
   }
 }
@@ -534,8 +767,70 @@ summary {
   }
   .brand-name,
   .brand-sub,
-  .user-chip {
+  .user-chip,
+  .topnav {
     display: none;
+  }
+  /* 下のタブバー。何かを開いているときは隠す（会話・タイマー・ファイルを画面いっぱいに） */
+  .app {
+    grid-template-rows: auto auto 1fr auto;
+  }
+  .tabbar {
+    grid-row: 4;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    background: var(--surface);
+    border-top: 1px solid var(--line);
+    padding: 0 env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  }
+  .app.has-sub .tabbar {
+    display: none;
+  }
+  .tabbar a {
+    position: relative;
+    display: grid;
+    justify-items: center;
+    align-content: center;
+    gap: 2px;
+    min-height: 52px;
+    text-decoration: none;
+    color: var(--text-3);
+    font-size: 11px;
+    font-weight: 500;
+  }
+  .tabbar a[aria-current='page'] {
+    color: var(--text);
+    font-weight: 700;
+  }
+  .tabbar-badge {
+    position: absolute;
+    top: 4px;
+    left: calc(50% + 8px);
+  }
+  .tabbar .nav-count {
+    display: inline-grid;
+    place-items: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 999px;
+    background: var(--surface-2);
+    box-shadow: inset 0 0 0 1px var(--line-strong);
+    color: var(--text-2);
+    font-size: 10px;
+  }
+  .pane-body {
+    padding: 16px 16px calc(24px + env(safe-area-inset-bottom));
+  }
+  .fact {
+    grid-template-columns: 1fr;
+    gap: 2px;
+  }
+  .list-section-title,
+  .list-section-desc,
+  .list-section-empty {
+    padding-left: 16px;
+    padding-right: 16px;
   }
   /* モック設定は丸いボタンだけにする。文字は読み上げ（ボタンの名前）に残す */
   .mock-label,
@@ -600,13 +895,18 @@ summary {
   .chat-list-head {
     padding: 8px 12px;
   }
-  /* 画面名と未読数は上のバーに出す */
+  /* 画面名と未読数は上のバーに出す。見出しの順番が崩れないよう、読み上げには残す */
   .chat-list-head h2 {
-    display: none;
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
   }
   .chat-list ul {
-    /* 下のバーがないので、ホームバーの分だけ空ける */
-    padding: 0 0 calc(12px + env(safe-area-inset-bottom));
+    /* ホームバーの分は下のタブバーが空ける */
+    padding: 0 0 12px;
   }
   .chat-list-item {
     min-height: 64px;
@@ -636,7 +936,7 @@ summary {
     grid-column: 2;
   }
   .toast {
-    bottom: calc(24px + env(safe-area-inset-bottom));
+    bottom: calc(76px + env(safe-area-inset-bottom));
   }
   .app.has-sub .toast {
     bottom: calc(76px + env(safe-area-inset-bottom));

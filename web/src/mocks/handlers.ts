@@ -1,34 +1,20 @@
 import { delay, http, HttpResponse } from 'msw';
 import { eventTypeSchema, SESSION_ID_PATTERN, USER_ID_PATTERN, type EventType } from '../api/schema';
-import { appendEvent, getState, listRecentEvents, listRecentMessages, type NewEventInput } from './db';
-import { SCENARIOS } from './scenarios';
+import { appendEvent, listRecentEvents, listRecentMessages, type NewEventInput } from './db';
+import { bad, base, parseLimit, readBody, readGuard, scenario } from './http';
+import { memoryHandlers } from './memoryApi';
 import { wake } from './simulator';
+import { timerHandlers } from './timerApi';
 
 /**
  * 実際の API（src/functions/handler.ts）と同じ URL・検証・ステータスコードを返すモック。
  *   POST /users/{userId}/events   → 202 { eventId, status, duplicate }
  *   GET  /users/{userId}/events   → 200 { events }   （新しい順、limit は 1〜100、既定 20）
  *   GET  /users/{userId}/messages → 200 { messages } （同上）
+ * タイマーとメモリ（まだ実際の API にない）は timerApi.ts と memoryApi.ts。
  */
-const MAX_BODY_BYTES = 64 * 1024;
 const SOURCE_PATTERN = /^[a-z0-9_.-]{1,32}$/;
 const SOURCE_EVENT_ID_PATTERN = /^[A-Za-z0-9_.:-]{1,128}$/;
-
-const base = '*/mock-api/users/:userId';
-const scenario = () => SCENARIOS[getState().scenario];
-const bad = (status: number, error: string) => HttpResponse.json({ error }, { status });
-
-function parseLimit(url: string): number {
-  const n = Number(new URL(url).searchParams.get('limit') ?? 20);
-  return Number.isInteger(n) && n > 0 ? Math.min(n, 100) : 20;
-}
-
-async function readGuard(userId: string): Promise<Response | undefined> {
-  await delay(scenario().latencyMs);
-  if (!USER_ID_PATTERN.test(userId)) return bad(400, 'invalid userId');
-  if (Math.random() < scenario().readErrorRate) return bad(500, 'internal error');
-  return undefined;
-}
 
 export function parseEventBody(userId: string, body: Record<string, unknown>): NewEventInput | { error: string } {
   const sessionId = body.sessionId;
@@ -75,17 +61,9 @@ export const handlers = [
     await delay(Math.min(scenario().latencyMs, 400));
     const userId = String(params.userId);
     if (!USER_ID_PATTERN.test(userId)) return bad(400, 'invalid userId');
-    const raw = await request.text();
-    if (!raw) return bad(400, 'body is required');
-    if (new TextEncoder().encode(raw).byteLength > MAX_BODY_BYTES) return bad(413, 'body too large');
-    let body: unknown;
-    try {
-      body = JSON.parse(raw);
-    } catch {
-      return bad(400, 'body must be JSON');
-    }
-    if (typeof body !== 'object' || body === null || Array.isArray(body)) return bad(400, 'body must be a JSON object');
-    const parsed = parseEventBody(userId, body as Record<string, unknown>);
+    const body = await readBody(request);
+    if (body instanceof Response) return body;
+    const parsed = parseEventBody(userId, body);
     if ('error' in parsed) return bad(400, parsed.error);
 
     const { event, duplicate } = appendEvent(parsed);
@@ -93,4 +71,6 @@ export const handlers = [
     wake(userId);
     return HttpResponse.json({ eventId: event.eventId, status: event.status, duplicate }, { status: 202 });
   }),
+  ...timerHandlers,
+  ...memoryHandlers,
 ];

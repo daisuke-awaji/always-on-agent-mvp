@@ -1,6 +1,6 @@
 import { setupWorker } from 'msw/browser';
 import { handlers } from './handlers';
-import { resumeAll } from './simulator';
+import { resumeAll, startScheduler } from './simulator';
 
 export async function startMocking(): Promise<void> {
   const worker = setupWorker(...handlers);
@@ -11,4 +11,6 @@ export async function startMocking(): Promise<void> {
     quiet: true,
   });
   resumeAll();
+  // タイマーの時刻が来たら inbox に入れる（実際の構成の EventBridge Scheduler の代わり）
+  startScheduler();
 }
