@@ -25,6 +25,23 @@ The API has no read state, so the UI keeps the IDs of the read messages in `loca
 - Each chat in the list shows its unread count, and its title is bold. The total is next to 会話 (at the top of the list, or in the top bar on phones) and in the browser tab title, for example `(3) 会話 — Always-on Agent`.
 - A message becomes read only when its chat is on screen: not while a phone shows the list, and not while the browser tab is in the background.
 
+## The use case
+
+The mock shows an everyday use: a two-income family with a child in the third grade. The agent watches school notices, payment and renewal deadlines, and deliveries, and only speaks up when something needs attention. Everything else is kept as a record, with no message.
+
+Each source posts a webhook with its own payload (`src/ui/payloads.ts`). The screen and the mock agent read them the same way.
+
+| `source` | Example | High (重要) | Normal | No message |
+| --- | --- | --- | --- | --- |
+| `school` | A school notice with a due date and things to bring | Due today or tomorrow | Due within 3 days | No due date, or later |
+| `calendar` | A family calendar event added or changed | — | Starts within 36 hours | Later |
+| `card` | A card charge with the usual amount | 1.5 times the usual or more | — | Usual amount, or no usual amount |
+| `bills` | A bill or a subscription renewal | Due within 2 days | Due within 7 days | Later |
+| `delivery` | Shipped, out for delivery, missed, delivered | Missed delivery | Arriving today | Shipped or delivered |
+| `shop` | An order, or the deadline to change a regular order | — | Change deadline within 2 days | Order received |
+
+Days are counted from when the notice arrived. A notice that contains instructions for the agent (for example, asking for a card number) is held, and the agent only reports that it held it. The seed history is two days of these notices, placed at times they would really arrive (school in the afternoon, deliveries in the morning).
+
 ## On phones
 
 - Below 720 px the list and the chat are separate screens. The open chat is in the URL (`#/chat/<sessionId>`), so the device back gesture returns to the list and a link opens the same chat.
@@ -60,10 +77,10 @@ Rules:
 | `src/mocks/handlers.ts` | API Gateway + Handler λ (same paths, validation, and status codes) |
 | `src/mocks/db.ts` | InboxTable and MessagesTable (kept in `localStorage`) |
 | `src/mocks/simulator.ts` | SQS FIFO + Worker λ (one worker per user, batching, retries, `failed` after 3 attempts) |
-| `src/mocks/brain.ts` | The agent on AgentCore Runtime (fixed rules instead of Claude) |
+| `src/mocks/brain.ts` | The agent on AgentCore Runtime (the fixed rules in the table above instead of Claude) |
 | `src/mocks/scenarios.ts` | Seed data: normal, empty, and unhealthy (failures, slow reads, intermittent 500s) |
 
-"モック設定" in the top bar switches the scenario and posts sample webhooks.
+"モック設定" in the top bar switches the scenario and posts sample webhooks: something to bring tomorrow, a missed delivery, a bill due in 5 days, a usual card charge (no message), a suspicious notice, and the same webhook again (`duplicate: true`).
 
 ## Connecting to the real API
 

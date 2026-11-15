@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { InboxEvent, StoredMessage } from '../api/schema';
-import { buildSessions, summarize, totalUnread, unreadIds } from './derive';
+import { buildSessions, detailOf, summarize, totalUnread, unreadIds } from './derive';
 
 let n = 0;
 function ev(p: Partial<InboxEvent>): InboxEvent {
@@ -45,9 +45,9 @@ describe('buildSessions', () => {
   it('送信のない run のイベントはどの会話にも入らない', () => {
     const silent = ev({
       type: 'webhook',
-      source: 'github',
+      source: 'delivery',
       runId: 'r9',
-      payload: { repository: 'x', action: 'opened' },
+      payload: { carrier: 'ヤマト運輸', status: 'shipped' },
     });
     expect(buildSessions([silent], [])).toEqual([]);
   });
@@ -62,7 +62,7 @@ describe('buildSessions', () => {
 describe('unreadIds / totalUnread', () => {
   it('まだ読んでいないエージェントのメッセージだけを数える（自分の発言とイベントは数えない）', () => {
     const first = ev({ runId: 'r1' });
-    const webhook = ev({ runId: 'r1', type: 'webhook', source: 'github', payload: {} });
+    const webhook = ev({ runId: 'r1', type: 'webhook', source: 'delivery', payload: {} });
     const m1 = msg({ runId: 'r1', sessionId: 's-1' });
     const m2 = msg({ runId: 'r1', sessionId: 's-1' });
     const s = buildSessions([first, webhook], [m1, m2]).at(0);
@@ -82,13 +82,40 @@ describe('unreadIds / totalUnread', () => {
   });
 });
 
-describe('summarize', () => {
-  it('GitHub の Webhook を 1 行にする', () => {
+describe('summarize と detailOf', () => {
+  it('日常の通知を 1 行にする', () => {
+    expect(
+      summarize(ev({ type: 'webhook', source: 'school', payload: { title: '図工の材料', due: '2026-11-17' } })),
+    ).toBe('図工の材料');
+    expect(
+      summarize(ev({ type: 'webhook', source: 'delivery', payload: { carrier: '佐川急便', status: 'absent' } })),
+    ).toBe('佐川急便 不在のお知らせ');
+    expect(
+      summarize(ev({ type: 'webhook', source: 'card', payload: { merchant: '携帯電話料金', amount: 18400 } })),
+    ).toBe('携帯電話料金 18,400 円');
+    expect(
+      summarize(
+        ev({ type: 'webhook', source: 'bills', payload: { kind: 'renewal', name: '動画配信', due: '2026-11-19' } }),
+      ),
+    ).toBe('動画配信の更新');
+    expect(summarize(ev({ type: 'system', source: 'scheduler', payload: { kind: 'daily_check' } }))).toBe(
+      '朝のチェック',
+    );
+  });
+
+  it('形が違う通知や知らない送信元は「〇〇 からの通知」にする', () => {
+    expect(summarize(ev({ type: 'webhook', source: 'school', payload: { body: 'タイトルなし' } }))).toBe(
+      '学校連絡 からの通知',
+    );
+    expect(summarize(ev({ type: 'webhook', source: 'github', payload: {} }))).toBe('github からの通知');
+  });
+
+  it('2 行目に期限や持ち物を出す', () => {
     const e = ev({
       type: 'webhook',
-      source: 'github',
-      payload: { repository: 'dmp-procurement', action: 'review_requested', pull_request: { number: 91 } },
+      source: 'school',
+      payload: { title: '遠足', due: '2026-11-17', items: ['水筒', '敷物'] },
     });
-    expect(summarize(e)).toBe('dmp-procurement #91 レビュー依頼');
+    expect(detailOf(e)).toBe('期限 11月17日（火） / 持ち物: 水筒、敷物');
   });
 });

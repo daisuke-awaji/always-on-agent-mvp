@@ -1,4 +1,5 @@
 import type { EventStatus, InboxEvent, StoredMessage } from '../api/schema';
+import { DELIVERY_LABEL, SOURCE_LABEL, dateLabel, readEveryday, timeLabel, yen } from './payloads';
 
 /**
  * API が返すのは「イベント」と「送信済みメッセージ」の 2 つだけ。
@@ -82,49 +83,72 @@ export function totalUnread(sessions: Session[], read: ReadonlySet<string>): num
 
 // ---- 表示用の文言 ----
 
-function rec(v: unknown): Record<string, unknown> | undefined {
-  return typeof v === 'object' && v !== null && !Array.isArray(v) ? (v as Record<string, unknown>) : undefined;
-}
-const str = (v: unknown) => (typeof v === 'string' ? v : undefined);
-
-const GH_ACTIONS: Record<string, string> = {
-  review_requested: 'レビュー依頼',
-  opened: '作成',
-  closed: 'クローズ',
-  merged: 'マージ',
-  synchronize: '更新',
-  failure: 'CI 失敗',
-};
-
-/** イベントを 1 行で説明する */
+/** イベントを 1 行で説明する（会話の一覧の題名と、届いた通知のカード） */
 export function summarize(e: InboxEvent): string {
-  const p = rec(e.payload);
-  if (e.type === 'user_message') return firstLine(str(p?.text) ?? '');
-  if (e.source === 'github' && p) {
-    const pr = rec(p.pull_request);
-    const num = typeof pr?.number === 'number' ? ` #${pr.number}` : '';
-    const action = str(p.action) ?? '';
-    return `${str(p.repository) ?? 'GitHub'}${num} ${GH_ACTIONS[action] ?? action}`.trim();
+  const p = typeof e.payload === 'object' && e.payload !== null ? (e.payload as Record<string, unknown>) : undefined;
+  if (e.type === 'user_message') return firstLine(typeof p?.text === 'string' ? p.text : '');
+  if (e.type === 'system')
+    return p?.kind === 'daily_check' ? '朝のチェック' : typeof p?.kind === 'string' ? p.kind : 'システム';
+  const n = readEveryday(e);
+  if (!n) return `${SOURCE_LABEL[e.source] ?? e.source} からの通知`;
+  switch (n.source) {
+    case 'school':
+      return n.p.title;
+    case 'calendar':
+      return `予定の${n.p.action === 'created' ? '追加' : '変更'}: ${n.p.title}`;
+    case 'card':
+      return `${n.p.merchant} ${yen(n.p.amount)}`;
+    case 'bills':
+      return n.p.kind === 'renewal' ? `${n.p.name}の更新` : `${n.p.name}の支払い`;
+    case 'delivery':
+      return `${n.p.carrier} ${DELIVERY_LABEL[n.p.status]}`;
+    case 'shop':
+      return n.p.kind === 'order' ? `${n.p.shop} 注文を受け付けました` : `${n.p.shop} 定期便の変更締切`;
   }
-  if (e.source === 'backlog' && p) return `${str(p.issue) ?? 'Backlog'} にコメント`;
-  if (e.type === 'system' && p) return str(p.kind) === 'daily_check' ? '定期チェック' : (str(p.kind) ?? 'システム');
-  return `${e.source} からの通知`;
 }
 
+/** 通知のカードに添える 2 行目 */
 export function detailOf(e: InboxEvent): string | undefined {
-  const p = rec(e.payload);
-  if (!p) return undefined;
-  if (e.type === 'user_message') return str(p.text);
-  const pr = rec(p.pull_request);
-  return str(pr?.title) ?? str(p.comment);
+  if (e.type === 'user_message') {
+    const p = e.payload as { text?: unknown } | null;
+    return typeof p?.text === 'string' ? p.text : undefined;
+  }
+  const n = readEveryday(e);
+  if (!n) return undefined;
+  const parts: (string | undefined)[] = [];
+  switch (n.source) {
+    case 'school':
+      parts.push(n.p.body, n.p.due && `期限 ${dateLabel(n.p.due)}`, n.p.items && `持ち物: ${n.p.items.join('、')}`);
+      break;
+    case 'calendar':
+      parts.push(
+        `${dateLabel(n.p.start)} ${timeLabel(n.p.start)}`,
+        n.p.by && `${n.p.by}が${n.p.action === 'created' ? '追加' : '変更'}`,
+      );
+      break;
+    case 'card':
+      parts.push(n.p.usual !== undefined ? `いつもは ${yen(n.p.usual)}前後` : undefined);
+      break;
+    case 'bills':
+      parts.push(`期限 ${dateLabel(n.p.due)}`, n.p.amount !== undefined ? yen(n.p.amount) : undefined, n.p.method);
+      break;
+    case 'delivery':
+      parts.push(
+        n.p.item,
+        n.p.window && `${n.p.window} のお届け`,
+        n.p.deadline && `再配達の受付は ${n.p.deadline} まで`,
+        n.p.note,
+      );
+      break;
+    case 'shop':
+      parts.push(n.p.item, n.p.due && `締切 ${dateLabel(n.p.due)}`);
+      break;
+  }
+  const out = parts.filter((x): x is string => Boolean(x));
+  return out.length > 0 ? out.join(' / ') : undefined;
 }
 
-export const SOURCE_LABEL: Record<string, string> = {
-  user: 'あなた',
-  github: 'GitHub',
-  backlog: 'Backlog',
-  scheduler: 'スケジューラ',
-};
+export { SOURCE_LABEL };
 
 export const STATUS_LABEL: Record<EventStatus, string> = {
   pending: '受付済み',
