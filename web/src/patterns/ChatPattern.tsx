@@ -186,8 +186,8 @@ export function ChatPattern({
           {missing && <Empty title="この会話は見つかりません" />}
           {!session && !draftEvent && !missing && (
             <Empty title="エージェントに話しかける" icon={<MessageSquare size={18} strokeWidth={1.9} />}>
-              お願いしたいこと、知らせてほしい条件、覚えておいてほしいことを書いてください。例: 「dmp-procurement
-              リポジトリの通知だけ知らせてください」
+              お願いしたいこと、知らせてほしい条件、覚えておいてほしいことを書いてください。例:
+              「学校の提出物と、支払いの期限が近いものだけ知らせてください」
             </Empty>
           )}
         </div>
